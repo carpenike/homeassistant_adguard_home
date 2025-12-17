@@ -23,6 +23,7 @@ from .api.models import (
     AdGuardHomeStats,
     AdGuardHomeStatus,
     DhcpStatus,
+    DnsInfo,
     DnsRewrite,
     FilteringStatus,
 )
@@ -47,6 +48,7 @@ class AdGuardHomeData:
         self.status: AdGuardHomeStatus | None = None
         self.stats: AdGuardHomeStats | None = None
         self.filtering: FilteringStatus | None = None
+        self.dns_info: DnsInfo | None = None
         self.blocked_services: list[str] = []
         self.available_services: list[dict[str, Any]] = []
         self.clients: list[dict[str, Any]] = []
@@ -95,6 +97,13 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
                 data.filtering = await self.client.get_filtering_status()
             except AdGuardHomeConnectionError as err:
                 _LOGGER.debug("Failed to fetch filtering status: %s", err)
+
+            # Fetch DNS info (cache settings, etc.)
+            try:
+                dns_info_data = await self.client.get_dns_info()
+                data.dns_info = DnsInfo.from_dict(dns_info_data)
+            except AdGuardHomeConnectionError as err:
+                _LOGGER.debug("Failed to fetch DNS info: %s", err)
 
             # Fetch blocked services
             try:

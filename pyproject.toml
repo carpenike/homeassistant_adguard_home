@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "homeassistant>=2025.1.0",
+    "homeassistant>=2024.1.0",
     "aiohttp>=3.8.0",
 ]
 

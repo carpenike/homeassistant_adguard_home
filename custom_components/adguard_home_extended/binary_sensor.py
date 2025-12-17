@@ -30,18 +30,21 @@ BINARY_SENSOR_TYPES: tuple[AdGuardHomeBinarySensorEntityDescription, ...] = (
     AdGuardHomeBinarySensorEntityDescription(
         key="running",
         translation_key="running",
+        icon="mdi:check-network",
         device_class=BinarySensorDeviceClass.RUNNING,
         is_on_fn=lambda data: data.status.running if data.status else None,
     ),
     AdGuardHomeBinarySensorEntityDescription(
         key="protection_enabled",
         translation_key="protection_enabled",
+        icon="mdi:shield",
         device_class=BinarySensorDeviceClass.SAFETY,
         is_on_fn=lambda data: (data.status.protection_enabled if data.status else None),
     ),
     AdGuardHomeBinarySensorEntityDescription(
         key="dhcp_enabled",
         translation_key="dhcp_enabled",
+        icon="mdi:ip-network",
         entity_category=EntityCategory.DIAGNOSTIC,
         is_on_fn=lambda data: data.dhcp.enabled if data.dhcp else None,
     ),

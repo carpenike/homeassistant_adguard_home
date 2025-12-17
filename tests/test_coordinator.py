@@ -38,6 +38,7 @@ class TestAdGuardHomeData:
         assert data.status is None
         assert data.stats is None
         assert data.filtering is None
+        assert data.dns_info is None
         assert data.blocked_services == []
         assert data.available_services == []
         assert data.clients == []
@@ -65,10 +66,18 @@ class TestAdGuardHomeDataUpdateCoordinator:
             )
         )
         client.get_filtering_status = AsyncMock(return_value=MagicMock())
+        client.get_dns_info = AsyncMock(
+            return_value={
+                "cache_enabled": True,
+                "cache_size": 4194304,
+            }
+        )
         client.get_blocked_services = AsyncMock(return_value=["facebook"])
         client.get_all_blocked_services = AsyncMock(return_value=[])
         client.get_clients = AsyncMock(return_value=[])
         client.get_dhcp_status = AsyncMock(return_value=MagicMock(enabled=False))
+        client.get_rewrites = AsyncMock(return_value=[])
+        client.get_query_log = AsyncMock(return_value=[])
         return client
 
     @pytest.fixture
@@ -114,6 +123,8 @@ class TestAdGuardHomeDataUpdateCoordinator:
         assert data.status.running is True
         assert data.stats is not None
         assert data.stats.dns_queries == 1000
+        assert data.dns_info is not None
+        assert data.dns_info.cache_enabled is True
 
     @pytest.mark.asyncio
     async def test_update_data_connection_error(

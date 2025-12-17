@@ -9,6 +9,7 @@ from custom_components.adguard_home_extended.api.models import (
     AdGuardHomeStatus,
     BlockedService,
     DhcpStatus,
+    DnsInfo,
     DnsRewrite,
     FilteringStatus,
     SafeSearchSettings,
@@ -24,6 +25,7 @@ class TestSafeSearchSettings:
             "enabled": True,
             "bing": True,
             "duckduckgo": False,
+            "ecosia": True,
             "google": True,
             "pixabay": True,
             "yandex": False,
@@ -34,6 +36,7 @@ class TestSafeSearchSettings:
         assert settings.enabled is True
         assert settings.bing is True
         assert settings.duckduckgo is False
+        assert settings.ecosia is True
         assert settings.google is True
         assert settings.yandex is False
 
@@ -43,6 +46,7 @@ class TestSafeSearchSettings:
 
         assert settings.enabled is False
         assert settings.bing is True  # Default to True for all engines
+        assert settings.ecosia is True
         assert settings.google is True
         assert settings.youtube is True
 
@@ -52,6 +56,7 @@ class TestSafeSearchSettings:
             enabled=True,
             bing=False,
             duckduckgo=True,
+            ecosia=False,
             google=True,
             pixabay=False,
             yandex=True,
@@ -62,7 +67,53 @@ class TestSafeSearchSettings:
         assert result["enabled"] is True
         assert result["bing"] is False
         assert result["duckduckgo"] is True
+        assert result["ecosia"] is False
         assert result["youtube"] is False
+
+
+class TestDnsInfo:
+    """Tests for DnsInfo model."""
+
+    def test_from_dict(self) -> None:
+        """Test creating DNS info from dict."""
+        data = {
+            "cache_enabled": True,
+            "cache_size": 8388608,
+            "cache_ttl_min": 60,
+            "cache_ttl_max": 3600,
+            "upstream_dns": ["https://dns.cloudflare.com/dns-query"],
+            "bootstrap_dns": ["1.1.1.1"],
+            "rate_limit": 50,
+            "blocking_mode": "nxdomain",
+            "edns_cs_enabled": True,
+            "dnssec_enabled": True,
+        }
+        dns_info = DnsInfo.from_dict(data)
+
+        assert dns_info.cache_enabled is True
+        assert dns_info.cache_size == 8388608
+        assert dns_info.cache_ttl_min == 60
+        assert dns_info.cache_ttl_max == 3600
+        assert dns_info.upstream_dns == ["https://dns.cloudflare.com/dns-query"]
+        assert dns_info.bootstrap_dns == ["1.1.1.1"]
+        assert dns_info.rate_limit == 50
+        assert dns_info.blocking_mode == "nxdomain"
+        assert dns_info.edns_cs_enabled is True
+        assert dns_info.dnssec_enabled is True
+
+    def test_from_dict_defaults(self) -> None:
+        """Test creating DNS info from empty dict uses defaults."""
+        dns_info = DnsInfo.from_dict({})
+
+        assert dns_info.cache_enabled is True
+        assert dns_info.cache_size == 4194304
+        assert dns_info.cache_ttl_min == 0
+        assert dns_info.cache_ttl_max == 0
+        assert dns_info.upstream_dns == []
+        assert dns_info.rate_limit == 20
+        assert dns_info.blocking_mode == "default"
+        assert dns_info.edns_cs_enabled is False
+        assert dns_info.dnssec_enabled is False
 
 
 class TestAdGuardHomeStatus:

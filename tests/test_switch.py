@@ -7,6 +7,7 @@ import pytest
 
 from custom_components.adguard_home_extended.api.models import (
     AdGuardHomeStatus,
+    DnsInfo,
     FilteringStatus,
 )
 from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
@@ -28,6 +29,7 @@ class TestSwitchEntityDescriptions:
             version="0.107.43",
         )
         data.filtering = FilteringStatus(enabled=True)
+        data.dns_info = DnsInfo(cache_enabled=True)
         return data
 
     def test_protection_switch_is_on(self, data_with_status: AdGuardHomeData) -> None:
@@ -257,3 +259,55 @@ class TestSwitchNoneHandling:
         filtering_desc = next(d for d in SWITCH_TYPES if d.key == "filtering")
         is_on = filtering_desc.is_on_fn(data)
         assert is_on is None
+
+
+class TestDnsCacheSwitch:
+    """Tests for DNS cache switch."""
+
+    def test_dns_cache_switch_is_on(self) -> None:
+        """Test DNS cache switch is_on function when enabled."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.dns_info = DnsInfo(cache_enabled=True)
+
+        dns_cache_desc = next(d for d in SWITCH_TYPES if d.key == "dns_cache")
+        is_on = dns_cache_desc.is_on_fn(data)
+        assert is_on is True
+
+    def test_dns_cache_switch_is_off(self) -> None:
+        """Test DNS cache switch is_on function when disabled."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.dns_info = DnsInfo(cache_enabled=False)
+
+        dns_cache_desc = next(d for d in SWITCH_TYPES if d.key == "dns_cache")
+        is_on = dns_cache_desc.is_on_fn(data)
+        assert is_on is False
+
+    def test_dns_cache_switch_none_dns_info(self) -> None:
+        """Test DNS cache switch with None dns_info."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()  # dns_info is None
+
+        dns_cache_desc = next(d for d in SWITCH_TYPES if d.key == "dns_cache")
+        is_on = dns_cache_desc.is_on_fn(data)
+        assert is_on is None
+
+    @pytest.mark.asyncio
+    async def test_dns_cache_toggle(self) -> None:
+        """Test DNS cache switch toggle functions."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_client = AsyncMock()
+        mock_client.set_dns_cache_enabled = AsyncMock()
+
+        dns_cache_desc = next(d for d in SWITCH_TYPES if d.key == "dns_cache")
+
+        await dns_cache_desc.turn_on_fn(mock_client)
+        mock_client.set_dns_cache_enabled.assert_called_with(True)
+
+        await dns_cache_desc.turn_off_fn(mock_client)
+        mock_client.set_dns_cache_enabled.assert_called_with(False)

@@ -107,6 +107,9 @@
       "safe_search": {
         "name": "Safe Search"
       },
+      "dns_cache": {
+        "name": "DNS Cache"
+      },
       "blocked_service": {
         "name": "Block {service_name}"
       }

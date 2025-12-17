@@ -192,3 +192,92 @@ class TestAsyncMigrateEntry:
         result = await async_migrate_entry(mock_hass, mock_entry)
 
         assert result is False
+
+
+class TestAsyncRemoveEntry:
+    """Tests for async_remove_entry."""
+
+    @pytest.fixture
+    def mock_hass(self) -> MagicMock:
+        """Return a mock Home Assistant instance."""
+        hass = MagicMock(spec=HomeAssistant)
+        return hass
+
+    @pytest.fixture
+    def mock_entry(self) -> MagicMock:
+        """Return a mock config entry."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_123"
+        return entry
+
+    @pytest.mark.asyncio
+    async def test_remove_entry_cleans_up_domain_data(
+        self, mock_hass: MagicMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that remove entry cleans up domain data."""
+        from custom_components.adguard_home_extended import async_remove_entry
+
+        mock_hass.data = {
+            DOMAIN: {
+                mock_entry.entry_id: MagicMock(),
+            }
+        }
+
+        await async_remove_entry(mock_hass, mock_entry)
+
+        # Domain data should be cleaned up completely if empty
+        assert DOMAIN not in mock_hass.data
+
+    @pytest.mark.asyncio
+    async def test_remove_entry_cleans_up_client_managers(
+        self, mock_hass: MagicMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that remove entry cleans up client_managers."""
+        from custom_components.adguard_home_extended import async_remove_entry
+
+        mock_hass.data = {
+            DOMAIN: {
+                mock_entry.entry_id: MagicMock(),
+                "client_managers": {
+                    mock_entry.entry_id: MagicMock(),
+                },
+            }
+        }
+
+        await async_remove_entry(mock_hass, mock_entry)
+
+        # Domain data should be cleaned up completely if empty
+        assert DOMAIN not in mock_hass.data
+
+    @pytest.mark.asyncio
+    async def test_remove_entry_preserves_other_entries(
+        self, mock_hass: MagicMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that remove entry preserves other entries."""
+        from custom_components.adguard_home_extended import async_remove_entry
+
+        other_entry_id = "other_entry_456"
+        mock_hass.data = {
+            DOMAIN: {
+                mock_entry.entry_id: MagicMock(),
+                other_entry_id: MagicMock(),
+            }
+        }
+
+        await async_remove_entry(mock_hass, mock_entry)
+
+        # Domain data should still exist with other entry
+        assert DOMAIN in mock_hass.data
+        assert other_entry_id in mock_hass.data[DOMAIN]
+
+    @pytest.mark.asyncio
+    async def test_remove_entry_no_data(
+        self, mock_hass: MagicMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that remove entry handles missing data gracefully."""
+        from custom_components.adguard_home_extended import async_remove_entry
+
+        mock_hass.data = {}  # No DOMAIN data
+
+        # Should not raise
+        await async_remove_entry(mock_hass, mock_entry)

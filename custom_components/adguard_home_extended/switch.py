@@ -29,6 +29,7 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
     AdGuardHomeSwitchEntityDescription(
         key="protection",
         translation_key="protection",
+        icon="mdi:shield-check",
         is_on_fn=lambda data: (data.status.protection_enabled if data.status else None),
         turn_on_fn=lambda client: client.set_protection(True),
         turn_off_fn=lambda client: client.set_protection(False),
@@ -36,6 +37,7 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
     AdGuardHomeSwitchEntityDescription(
         key="filtering",
         translation_key="filtering",
+        icon="mdi:filter",
         is_on_fn=lambda data: data.filtering.enabled if data.filtering else None,
         turn_on_fn=lambda client: client.set_filtering(True),
         turn_off_fn=lambda client: client.set_filtering(False),
@@ -43,6 +45,7 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
     AdGuardHomeSwitchEntityDescription(
         key="safe_browsing",
         translation_key="safe_browsing",
+        icon="mdi:shield-lock",
         is_on_fn=lambda data: (
             data.status.safebrowsing_enabled if data.status else None
         ),
@@ -52,6 +55,7 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
     AdGuardHomeSwitchEntityDescription(
         key="parental_control",
         translation_key="parental_control",
+        icon="mdi:account-child",
         is_on_fn=lambda data: (data.status.parental_enabled if data.status else None),
         turn_on_fn=lambda client: client.set_parental(True),
         turn_off_fn=lambda client: client.set_parental(False),
@@ -59,9 +63,18 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
     AdGuardHomeSwitchEntityDescription(
         key="safe_search",
         translation_key="safe_search",
+        icon="mdi:magnify-scan",
         is_on_fn=lambda data: (data.status.safesearch_enabled if data.status else None),
         turn_on_fn=lambda client: client.set_safesearch(True),
         turn_off_fn=lambda client: client.set_safesearch(False),
+    ),
+    AdGuardHomeSwitchEntityDescription(
+        key="dns_cache",
+        translation_key="dns_cache",
+        icon="mdi:cached",
+        is_on_fn=lambda data: data.dns_info.cache_enabled if data.dns_info else None,
+        turn_on_fn=lambda client: client.set_dns_cache_enabled(True),
+        turn_off_fn=lambda client: client.set_dns_cache_enabled(False),
     ),
 )
 

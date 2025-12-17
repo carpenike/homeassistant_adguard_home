@@ -39,6 +39,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="dns_queries",
         translation_key="dns_queries",
+        icon="mdi:dns",
         native_unit_of_measurement="queries",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda data: data.stats.dns_queries if data.stats else None,
@@ -46,6 +47,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="blocked_queries",
         translation_key="blocked_queries",
+        icon="mdi:shield-off",
         native_unit_of_measurement="queries",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda data: data.stats.blocked_filtering if data.stats else None,
@@ -53,6 +55,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="blocked_percentage",
         translation_key="blocked_percentage",
+        icon="mdi:percent",
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: (
@@ -64,6 +67,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="avg_processing_time",
         translation_key="avg_processing_time",
+        icon="mdi:timer",
         native_unit_of_measurement=UnitOfTime.MILLISECONDS,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
@@ -75,6 +79,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="safe_browsing_blocked",
         translation_key="safe_browsing_blocked",
+        icon="mdi:shield-lock",
         native_unit_of_measurement="queries",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda data: (
@@ -84,6 +89,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="parental_blocked",
         translation_key="parental_blocked",
+        icon="mdi:account-child",
         native_unit_of_measurement="queries",
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda data: data.stats.replaced_parental if data.stats else None,
@@ -91,6 +97,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="top_blocked_domain",
         translation_key="top_blocked_domain",
+        icon="mdi:web-off",
         value_fn=lambda data: (
             list(data.stats.top_blocked_domains[0].keys())[0]
             if data.stats and data.stats.top_blocked_domains
@@ -105,6 +112,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="top_client",
         translation_key="top_client",
+        icon="mdi:devices",
         value_fn=lambda data: (
             list(data.stats.top_clients[0].keys())[0]
             if data.stats and data.stats.top_clients
@@ -118,6 +126,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="dns_rewrites_count",
         translation_key="dns_rewrites_count",
+        icon="mdi:swap-horizontal",
         native_unit_of_measurement="rules",
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -137,6 +146,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="dhcp_leases_count",
         translation_key="dhcp_leases_count",
+        icon="mdi:ip-network",
         native_unit_of_measurement="leases",
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -160,6 +170,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="dhcp_static_leases_count",
         translation_key="dhcp_static_leases_count",
+        icon="mdi:ip-network-outline",
         native_unit_of_measurement="leases",
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -183,6 +194,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="recent_queries",
         translation_key="recent_queries",
+        icon="mdi:history",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.query_log) if data.query_log else 0,
         attributes_fn=lambda data, top_limit, list_limit: (

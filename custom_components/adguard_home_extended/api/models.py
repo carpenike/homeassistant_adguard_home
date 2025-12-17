@@ -12,6 +12,7 @@ class SafeSearchSettings:
     enabled: bool = False
     bing: bool = True
     duckduckgo: bool = True
+    ecosia: bool = True  # Added in AdGuard Home v0.107.52
     google: bool = True
     pixabay: bool = True
     yandex: bool = True
@@ -24,6 +25,7 @@ class SafeSearchSettings:
             enabled=data.get("enabled", False),
             bing=data.get("bing", True),
             duckduckgo=data.get("duckduckgo", True),
+            ecosia=data.get("ecosia", True),
             google=data.get("google", True),
             pixabay=data.get("pixabay", True),
             yandex=data.get("yandex", True),
@@ -36,6 +38,7 @@ class SafeSearchSettings:
             "enabled": self.enabled,
             "bing": self.bing,
             "duckduckgo": self.duckduckgo,
+            "ecosia": self.ecosia,
             "google": self.google,
             "pixabay": self.pixabay,
             "yandex": self.yandex,
@@ -135,6 +138,38 @@ class FilteringStatus:
             filters=data.get("filters", []),
             whitelist_filters=data.get("whitelist_filters", []),
             user_rules=data.get("user_rules", []),
+        )
+
+
+@dataclass
+class DnsInfo:
+    """AdGuard Home DNS configuration info."""
+
+    cache_enabled: bool = True
+    cache_size: int = 4194304  # Default 4MB
+    cache_ttl_min: int = 0
+    cache_ttl_max: int = 0
+    upstream_dns: list[str] = field(default_factory=list)
+    bootstrap_dns: list[str] = field(default_factory=list)
+    rate_limit: int = 20
+    blocking_mode: str = "default"
+    edns_cs_enabled: bool = False
+    dnssec_enabled: bool = False
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DnsInfo:
+        """Create instance from API response dict."""
+        return cls(
+            cache_enabled=data.get("cache_enabled", True),
+            cache_size=data.get("cache_size", 4194304),
+            cache_ttl_min=data.get("cache_ttl_min", 0),
+            cache_ttl_max=data.get("cache_ttl_max", 0),
+            upstream_dns=data.get("upstream_dns", []),
+            bootstrap_dns=data.get("bootstrap_dns", []),
+            rate_limit=data.get("rate_limit", 20),
+            blocking_mode=data.get("blocking_mode", "default"),
+            edns_cs_enabled=data.get("edns_cs_enabled", False),
+            dnssec_enabled=data.get("dnssec_enabled", False),
         )
 
 

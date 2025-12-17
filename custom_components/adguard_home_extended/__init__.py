@@ -354,3 +354,27 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 hass.services.async_remove(DOMAIN, service)
 
     return unload_ok
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Handle removal of a config entry.
+
+    This is called after async_unload_entry has been called.
+    Any cleanup of persistent data (like stored credentials, files, etc.) should be done here.
+    """
+    _LOGGER.debug("Removing AdGuard Home config entry: %s", entry.entry_id)
+
+    # Clean up any remaining domain data
+    if DOMAIN in hass.data:
+        # Remove entry from domain data if somehow still present
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+
+        # Remove from client_managers if still present
+        if "client_managers" in hass.data[DOMAIN]:
+            hass.data[DOMAIN]["client_managers"].pop(entry.entry_id, None)
+            if not hass.data[DOMAIN]["client_managers"]:
+                del hass.data[DOMAIN]["client_managers"]
+
+        # Clean up domain data if completely empty
+        if not hass.data[DOMAIN]:
+            del hass.data[DOMAIN]
