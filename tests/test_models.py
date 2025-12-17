@@ -11,7 +11,58 @@ from custom_components.adguard_home_extended.api.models import (
     DhcpStatus,
     DnsRewrite,
     FilteringStatus,
+    SafeSearchSettings,
 )
+
+
+class TestSafeSearchSettings:
+    """Tests for SafeSearchSettings model."""
+
+    def test_from_dict(self) -> None:
+        """Test creating settings from dict."""
+        data = {
+            "enabled": True,
+            "bing": True,
+            "duckduckgo": False,
+            "google": True,
+            "pixabay": True,
+            "yandex": False,
+            "youtube": True,
+        }
+        settings = SafeSearchSettings.from_dict(data)
+
+        assert settings.enabled is True
+        assert settings.bing is True
+        assert settings.duckduckgo is False
+        assert settings.google is True
+        assert settings.yandex is False
+
+    def test_from_dict_defaults(self) -> None:
+        """Test creating settings from empty dict uses defaults."""
+        settings = SafeSearchSettings.from_dict({})
+
+        assert settings.enabled is False
+        assert settings.bing is True  # Default to True for all engines
+        assert settings.google is True
+        assert settings.youtube is True
+
+    def test_to_dict(self) -> None:
+        """Test converting settings to dict."""
+        settings = SafeSearchSettings(
+            enabled=True,
+            bing=False,
+            duckduckgo=True,
+            google=True,
+            pixabay=False,
+            yandex=True,
+            youtube=False,
+        )
+        result = settings.to_dict()
+
+        assert result["enabled"] is True
+        assert result["bing"] is False
+        assert result["duckduckgo"] is True
+        assert result["youtube"] is False
 
 
 class TestAdGuardHomeStatus:
@@ -163,6 +214,8 @@ class TestClientConfig:
             "use_global_blocked_services": False,
             "blocked_services": ["tiktok", "youtube"],
             "tags": ["device:tablet", "user:child"],
+            "upstreams_cache_enabled": False,
+            "upstreams_cache_size": 8192,
         }
         client = ClientConfig.from_dict(data)
 
@@ -177,6 +230,8 @@ class TestClientConfig:
         assert client.use_global_blocked_services is False
         assert client.blocked_services == ["tiktok", "youtube"]
         assert len(client.tags) == 2
+        assert client.upstreams_cache_enabled is False
+        assert client.upstreams_cache_size == 8192
 
     def test_from_dict_defaults(self) -> None:
         """Test creating client config from dict with defaults."""
@@ -190,6 +245,8 @@ class TestClientConfig:
         assert client.parental_enabled is False
         assert client.use_global_blocked_services is True
         assert client.blocked_services == []
+        assert client.upstreams_cache_enabled is True
+        assert client.upstreams_cache_size == 0
 
 
 class TestBlockedService:

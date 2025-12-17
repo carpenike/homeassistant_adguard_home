@@ -272,6 +272,46 @@ class TestAdGuardHomeClient:
         assert call_args[1]["json"] == {"ids": ["facebook", "youtube"]}
 
     @pytest.mark.asyncio
+    async def test_set_blocked_services_with_schedule(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting blocked services with schedule."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        schedule = {
+            "time_zone": "America/New_York",
+            "mon": {"start": 32400000, "end": 61200000},  # 9am-5pm
+        }
+        await client.set_blocked_services(["facebook"], schedule=schedule)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[1]["json"]["ids"] == ["facebook"]
+        assert call_args[1]["json"]["schedule"] == schedule
+
+    @pytest.mark.asyncio
+    async def test_get_blocked_services_with_schedule(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting blocked services with schedule info."""
+        response_data = {
+            "ids": ["facebook", "tiktok"],
+            "schedule": {
+                "time_zone": "America/New_York",
+                "mon": {"start": 0, "end": 86399999},
+            },
+        }
+        mock_response = create_mock_response(status=200, json_data=response_data)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.get_blocked_services_with_schedule()
+
+        assert result["ids"] == ["facebook", "tiktok"]
+        assert "schedule" in result
+        assert result["schedule"]["time_zone"] == "America/New_York"
+
+    @pytest.mark.asyncio
     async def test_get_filtering_status(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
@@ -565,3 +605,61 @@ class TestAdGuardHomeClient:
         call_args = mock_session.request.call_args
         assert call_args[0][0] == "PUT"
         assert "/control/rewrite/update" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_get_safesearch_settings(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting SafeSearch settings with per-engine control."""
+        response_data = {
+            "enabled": True,
+            "bing": True,
+            "duckduckgo": False,
+            "google": True,
+            "pixabay": True,
+            "yandex": False,
+            "youtube": True,
+        }
+        mock_response = create_mock_response(status=200, json_data=response_data)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        from custom_components.adguard_home_extended.api.models import (
+            SafeSearchSettings,
+        )
+
+        settings = await client.get_safesearch_settings()
+
+        assert isinstance(settings, SafeSearchSettings)
+        assert settings.enabled is True
+        assert settings.google is True
+        assert settings.duckduckgo is False
+        assert settings.yandex is False
+
+    @pytest.mark.asyncio
+    async def test_set_safesearch_settings(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting SafeSearch settings with per-engine control."""
+        from custom_components.adguard_home_extended.api.models import (
+            SafeSearchSettings,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        settings = SafeSearchSettings(
+            enabled=True,
+            google=True,
+            youtube=True,
+            bing=False,
+            duckduckgo=False,
+            pixabay=True,
+            yandex=False,
+        )
+        await client.set_safesearch_settings(settings)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "PUT"
+        assert "/control/safesearch/settings" in call_args[0][1]

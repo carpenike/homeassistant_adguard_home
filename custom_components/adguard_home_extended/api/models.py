@@ -6,6 +6,44 @@ from typing import Any
 
 
 @dataclass
+class SafeSearchSettings:
+    """AdGuard Home SafeSearch settings with per-engine control."""
+
+    enabled: bool = False
+    bing: bool = True
+    duckduckgo: bool = True
+    google: bool = True
+    pixabay: bool = True
+    yandex: bool = True
+    youtube: bool = True
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> SafeSearchSettings:
+        """Create instance from API response dict."""
+        return cls(
+            enabled=data.get("enabled", False),
+            bing=data.get("bing", True),
+            duckduckgo=data.get("duckduckgo", True),
+            google=data.get("google", True),
+            pixabay=data.get("pixabay", True),
+            yandex=data.get("yandex", True),
+            youtube=data.get("youtube", True),
+        )
+
+    def to_dict(self) -> dict[str, bool]:
+        """Convert to dict for API request."""
+        return {
+            "enabled": self.enabled,
+            "bing": self.bing,
+            "duckduckgo": self.duckduckgo,
+            "google": self.google,
+            "pixabay": self.pixabay,
+            "yandex": self.yandex,
+            "youtube": self.youtube,
+        }
+
+
+@dataclass
 class AdGuardHomeStatus:
     """AdGuard Home server status."""
 
@@ -115,6 +153,8 @@ class AdGuardHomeClient:
     use_global_blocked_services: bool = True
     blocked_services: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
+    upstreams_cache_enabled: bool = True
+    upstreams_cache_size: int = 0
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdGuardHomeClient:
@@ -131,6 +171,8 @@ class AdGuardHomeClient:
             use_global_blocked_services=data.get("use_global_blocked_services", True),
             blocked_services=data.get("blocked_services", []),
             tags=data.get("tags", []),
+            upstreams_cache_enabled=data.get("upstreams_cache_enabled", True),
+            upstreams_cache_size=data.get("upstreams_cache_size", 0),
         )
 
 

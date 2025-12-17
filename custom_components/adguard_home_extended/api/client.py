@@ -36,6 +36,7 @@ from ..const import (
     API_SAFEBROWSING_ENABLE,
     API_SAFESEARCH_DISABLE,
     API_SAFESEARCH_ENABLE,
+    API_SAFESEARCH_SETTINGS,
     API_STATS,
     API_STATUS,
 )
@@ -49,6 +50,7 @@ from .models import (
     DhcpStatus,
     DnsRewrite,
     FilteringStatus,
+    SafeSearchSettings,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -202,6 +204,22 @@ class AdGuardHomeClient:
         endpoint = API_SAFESEARCH_ENABLE if enabled else API_SAFESEARCH_DISABLE
         await self._post(endpoint)
 
+    async def get_safesearch_settings(self) -> SafeSearchSettings:
+        """Get SafeSearch settings with per-engine control.
+
+        Returns detailed SafeSearch configuration including per-engine settings.
+        """
+        data = await self._get(API_SAFESEARCH_SETTINGS)
+        return SafeSearchSettings.from_dict(data or {})
+
+    async def set_safesearch_settings(self, settings: SafeSearchSettings) -> None:
+        """Set SafeSearch settings with per-engine control.
+
+        Args:
+            settings: SafeSearchSettings object with enabled flag and per-engine booleans.
+        """
+        await self._put(API_SAFESEARCH_SETTINGS, settings.to_dict())
+
     # Filtering
     async def get_filtering_status(self) -> FilteringStatus:
         """Get filtering status."""
@@ -308,12 +326,33 @@ class AdGuardHomeClient:
         # Old format returns just a list
         return data if isinstance(data, list) else []
 
-    async def set_blocked_services(self, services: list[str]) -> None:
-        """Set blocked services.
+    async def get_blocked_services_with_schedule(self) -> dict[str, Any]:
+        """Get blocked services with schedule info.
 
-        Uses the new API format (v0.107.37+) with {"ids": [...]}.
+        Returns the full response including schedule (v0.107.37+).
         """
-        await self._post(API_BLOCKED_SERVICES_SET, {"ids": services})
+        data = await self._get(API_BLOCKED_SERVICES_LIST)
+        if isinstance(data, dict):
+            return data
+        # Old format - wrap in new format structure
+        return {"ids": data if isinstance(data, list) else [], "schedule": {}}
+
+    async def set_blocked_services(
+        self,
+        services: list[str],
+        schedule: dict[str, Any] | None = None,
+    ) -> None:
+        """Set blocked services with optional schedule.
+
+        Args:
+            services: List of service IDs to block.
+            schedule: Optional schedule dict with time_zone and day configs.
+                     Example: {"time_zone": "America/New_York", "mon": {"start": 0, "end": 86399999}}
+        """
+        data: dict[str, Any] = {"ids": services}
+        if schedule is not None:
+            data["schedule"] = schedule
+        await self._post(API_BLOCKED_SERVICES_SET, data)
 
     # DNS rewrites
     async def get_rewrites(self) -> list[DnsRewrite]:
