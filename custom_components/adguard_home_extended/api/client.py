@@ -10,11 +10,14 @@ from aiohttp import ClientError, ClientResponseError, ClientSession
 
 from ..const import (
     API_BLOCKED_SERVICES_ALL,
+    API_BLOCKED_SERVICES_GET,
     API_BLOCKED_SERVICES_LIST,
     API_BLOCKED_SERVICES_SET,
+    API_BLOCKED_SERVICES_UPDATE,
     API_CLIENTS,
     API_CLIENTS_ADD,
     API_CLIENTS_DELETE,
+    API_CLIENTS_SEARCH,
     API_CLIENTS_UPDATE,
     API_DHCP_STATUS,
     API_DNS_CONFIG,
@@ -28,6 +31,8 @@ from ..const import (
     API_PARENTAL_ENABLE,
     API_PROTECTION,
     API_QUERYLOG,
+    API_QUERYLOG_CONFIG,
+    API_QUERYLOG_CONFIG_UPDATE,
     API_REWRITE_ADD,
     API_REWRITE_DELETE,
     API_REWRITE_LIST,
@@ -38,6 +43,8 @@ from ..const import (
     API_SAFESEARCH_ENABLE,
     API_SAFESEARCH_SETTINGS,
     API_STATS,
+    API_STATS_CONFIG,
+    API_STATS_CONFIG_UPDATE,
     API_STATUS,
 )
 from .models import (
@@ -374,6 +381,7 @@ class AdGuardHomeClient:
         old_answer: str,
         new_domain: str,
         new_answer: str,
+        enabled: bool | None = None,
     ) -> None:
         """Update an existing DNS rewrite.
 
@@ -382,13 +390,35 @@ class AdGuardHomeClient:
             old_answer: Current answer of the rewrite rule.
             new_domain: New domain for the rewrite rule.
             new_answer: New answer for the rewrite rule.
+            enabled: Optional enabled state (v0.107.68+).
         """
+        update_data: dict[str, Any] = {"domain": new_domain, "answer": new_answer}
+        if enabled is not None:
+            update_data["enabled"] = enabled
         await self._put(
             API_REWRITE_UPDATE,
             {
                 "target": {"domain": old_domain, "answer": old_answer},
-                "update": {"domain": new_domain, "answer": new_answer},
+                "update": update_data,
             },
+        )
+
+    async def set_rewrite_enabled(
+        self, domain: str, answer: str, enabled: bool
+    ) -> None:
+        """Enable or disable a DNS rewrite rule (v0.107.68+).
+
+        Args:
+            domain: Domain of the rewrite rule.
+            answer: Answer of the rewrite rule.
+            enabled: Whether the rule should be enabled.
+        """
+        await self.update_rewrite(
+            old_domain=domain,
+            old_answer=answer,
+            new_domain=domain,
+            new_answer=answer,
+            enabled=enabled,
         )
 
     # Query log
@@ -447,3 +477,127 @@ class AdGuardHomeClient:
             return True
         except AdGuardHomeError:
             return False
+
+    # Stats configuration (v0.107.30+)
+    async def get_stats_config(self) -> dict[str, Any]:
+        """Get statistics configuration.
+
+        Returns stats settings including enabled state and retention interval.
+        Available in AdGuard Home v0.107.30+.
+
+        Returns:
+            Dict with keys: enabled (bool), interval (int in ms), ignored (list of domains)
+        """
+        data = await self._get(API_STATS_CONFIG)
+        return data or {}
+
+    async def set_stats_config(
+        self,
+        enabled: bool | None = None,
+        interval: int | None = None,
+        ignored: list[str] | None = None,
+    ) -> None:
+        """Update statistics configuration.
+
+        Args:
+            enabled: Whether statistics collection is enabled.
+            interval: Stats retention period in milliseconds.
+            ignored: List of domains to ignore in stats.
+        """
+        config: dict[str, Any] = {}
+        if enabled is not None:
+            config["enabled"] = enabled
+        if interval is not None:
+            config["interval"] = interval
+        if ignored is not None:
+            config["ignored"] = ignored
+        if config:
+            await self._put(API_STATS_CONFIG_UPDATE, config)
+
+    # Query log configuration (v0.107.30+)
+    async def get_querylog_config(self) -> dict[str, Any]:
+        """Get query log configuration.
+
+        Returns query log settings including enabled state and anonymization.
+        Available in AdGuard Home v0.107.30+.
+
+        Returns:
+            Dict with keys: enabled, anonymize_client_ip, interval, ignored
+        """
+        data = await self._get(API_QUERYLOG_CONFIG)
+        return data or {}
+
+    async def set_querylog_config(
+        self,
+        enabled: bool | None = None,
+        anonymize_client_ip: bool | None = None,
+        interval: int | None = None,
+        ignored: list[str] | None = None,
+    ) -> None:
+        """Update query log configuration.
+
+        Args:
+            enabled: Whether query logging is enabled.
+            anonymize_client_ip: Whether to anonymize client IPs.
+            interval: Log retention period in milliseconds.
+            ignored: List of domains to ignore in query log.
+        """
+        config: dict[str, Any] = {}
+        if enabled is not None:
+            config["enabled"] = enabled
+        if anonymize_client_ip is not None:
+            config["anonymize_client_ip"] = anonymize_client_ip
+        if interval is not None:
+            config["interval"] = interval
+        if ignored is not None:
+            config["ignored"] = ignored
+        if config:
+            await self._put(API_QUERYLOG_CONFIG_UPDATE, config)
+
+    # Blocked services with schedule (v0.107.56+)
+    async def get_blocked_services_v2(self) -> dict[str, Any]:
+        """Get blocked services with schedule (v0.107.56+ API).
+
+        Uses the newer /control/blocked_services/get endpoint.
+
+        Returns:
+            Dict with ids (list of service IDs) and schedule configuration.
+        """
+        data = await self._get(API_BLOCKED_SERVICES_GET)
+        if isinstance(data, dict):
+            return data
+        return {"ids": data if isinstance(data, list) else [], "schedule": {}}
+
+    async def set_blocked_services_v2(
+        self,
+        services: list[str],
+        schedule: dict[str, Any] | None = None,
+    ) -> None:
+        """Set blocked services with schedule (v0.107.56+ API).
+
+        Uses the newer /control/blocked_services/update endpoint.
+
+        Args:
+            services: List of service IDs to block.
+            schedule: Optional schedule dict with time_zone and day configs.
+        """
+        data: dict[str, Any] = {"ids": services}
+        if schedule is not None:
+            data["schedule"] = schedule
+        await self._put(API_BLOCKED_SERVICES_UPDATE, data)
+
+    # Client search (v0.107.56+)
+    async def search_clients(self, client_ids: list[str]) -> list[dict[str, Any]]:
+        """Search for clients by ID (v0.107.56+ API).
+
+        This replaces the deprecated GET /control/clients/find endpoint.
+
+        Args:
+            client_ids: List of client identifiers (IPs, MACs, or names).
+
+        Returns:
+            List of client info dicts for found clients.
+        """
+        clients_param = [{"id": cid} for cid in client_ids]
+        data = await self._post(API_CLIENTS_SEARCH, {"clients": clients_param})
+        return data if isinstance(data, list) else []

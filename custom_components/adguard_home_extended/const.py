@@ -51,6 +51,17 @@ API_DHCP_STATUS: Final = "/control/dhcp/status"
 API_DNS_INFO: Final = "/control/dns_info"
 API_DNS_CONFIG: Final = "/control/dns_config"
 
+# v0.107.30+ Stats and Query Log Config APIs
+API_STATS_CONFIG: Final = "/control/stats/config"
+API_STATS_CONFIG_UPDATE: Final = "/control/stats/config/update"
+API_QUERYLOG_CONFIG: Final = "/control/querylog/config"
+API_QUERYLOG_CONFIG_UPDATE: Final = "/control/querylog/config/update"
+
+# v0.107.56+ Blocked Services with Schedule and Client Search
+API_BLOCKED_SERVICES_GET: Final = "/control/blocked_services/get"
+API_BLOCKED_SERVICES_UPDATE: Final = "/control/blocked_services/update"
+API_CLIENTS_SEARCH: Final = "/control/clients/search"
+
 # Attributes
 ATTR_PROCESSING_TIME: Final = "avg_processing_time"
 ATTR_DNS_QUERIES: Final = "dns_queries"

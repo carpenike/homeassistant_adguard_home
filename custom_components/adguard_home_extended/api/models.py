@@ -235,6 +235,7 @@ class DnsRewrite:
 
     domain: str
     answer: str
+    enabled: bool = True  # Added in v0.107.68
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DnsRewrite:
@@ -242,7 +243,16 @@ class DnsRewrite:
         return cls(
             domain=data.get("domain", ""),
             answer=data.get("answer", ""),
+            enabled=data.get("enabled", True),  # Default to True for backwards compat
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to API request dict."""
+        return {
+            "domain": self.domain,
+            "answer": self.answer,
+            "enabled": self.enabled,
+        }
 
 
 @dataclass

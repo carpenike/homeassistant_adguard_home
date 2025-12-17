@@ -663,3 +663,185 @@ class TestAdGuardHomeClient:
         call_args = mock_session.request.call_args
         assert call_args[0][0] == "PUT"
         assert "/control/safesearch/settings" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_get_stats_config(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting stats configuration (v0.107.30+)."""
+        response_data = {
+            "enabled": True,
+            "interval": 86400000,
+            "ignored": ["example.com"],
+        }
+        mock_response = create_mock_response(status=200, json_data=response_data)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        config = await client.get_stats_config()
+
+        assert config["enabled"] is True
+        assert config["interval"] == 86400000
+        assert "example.com" in config["ignored"]
+        call_args = mock_session.request.call_args
+        assert "/control/stats/config" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_set_stats_config(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting stats configuration."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_stats_config(enabled=True, interval=3600000)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "PUT"
+        assert "/control/stats/config/update" in call_args[0][1]
+        assert call_args[1]["json"]["enabled"] is True
+        assert call_args[1]["json"]["interval"] == 3600000
+
+    @pytest.mark.asyncio
+    async def test_get_querylog_config(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting query log configuration (v0.107.30+)."""
+        response_data = {
+            "enabled": True,
+            "anonymize_client_ip": False,
+            "interval": 2592000000,
+            "ignored": [],
+        }
+        mock_response = create_mock_response(status=200, json_data=response_data)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        config = await client.get_querylog_config()
+
+        assert config["enabled"] is True
+        assert config["anonymize_client_ip"] is False
+        call_args = mock_session.request.call_args
+        assert "/control/querylog/config" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_set_querylog_config(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting query log configuration."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_querylog_config(enabled=True, anonymize_client_ip=True)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "PUT"
+        assert "/control/querylog/config/update" in call_args[0][1]
+        assert call_args[1]["json"]["enabled"] is True
+        assert call_args[1]["json"]["anonymize_client_ip"] is True
+
+    @pytest.mark.asyncio
+    async def test_get_blocked_services_v2(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting blocked services with schedule (v0.107.56+)."""
+        response_data = {
+            "ids": ["facebook", "tiktok"],
+            "schedule": {
+                "time_zone": "America/New_York",
+                "mon": {"start": 0, "end": 86399999},
+            },
+        }
+        mock_response = create_mock_response(status=200, json_data=response_data)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.get_blocked_services_v2()
+
+        assert result["ids"] == ["facebook", "tiktok"]
+        assert "schedule" in result
+        call_args = mock_session.request.call_args
+        assert "/control/blocked_services/get" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_set_blocked_services_v2(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting blocked services with schedule (v0.107.56+)."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        schedule = {"time_zone": "UTC", "mon": {"start": 0, "end": 43200000}}
+        await client.set_blocked_services_v2(["facebook"], schedule=schedule)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "PUT"
+        assert "/control/blocked_services/update" in call_args[0][1]
+        assert call_args[1]["json"]["ids"] == ["facebook"]
+        assert "schedule" in call_args[1]["json"]
+
+    @pytest.mark.asyncio
+    async def test_search_clients(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test searching for clients (v0.107.56+)."""
+        response_data = [
+            {
+                "name": "Test Client",
+                "ids": ["192.168.1.100"],
+                "use_global_settings": True,
+            }
+        ]
+        mock_response = create_mock_response(status=200, json_data=response_data)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        results = await client.search_clients(["192.168.1.100"])
+
+        assert len(results) == 1
+        assert results[0]["name"] == "Test Client"
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/clients/search" in call_args[0][1]
+        assert call_args[1]["json"]["clients"] == [{"id": "192.168.1.100"}]
+
+    @pytest.mark.asyncio
+    async def test_set_rewrite_enabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test enabling/disabling a DNS rewrite rule (v0.107.68+)."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_rewrite_enabled("ads.example.com", "0.0.0.0", False)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "PUT"
+        assert "/control/rewrite/update" in call_args[0][1]
+        json_data = call_args[1]["json"]
+        assert json_data["target"]["domain"] == "ads.example.com"
+        assert json_data["target"]["answer"] == "0.0.0.0"
+        assert json_data["update"]["domain"] == "ads.example.com"
+        assert json_data["update"]["answer"] == "0.0.0.0"
+        assert json_data["update"]["enabled"] is False
+
+    @pytest.mark.asyncio
+    async def test_update_rewrite_with_enabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test updating a rewrite with enabled field."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.update_rewrite(
+            old_domain="old.example.com",
+            old_answer="1.2.3.4",
+            new_domain="new.example.com",
+            new_answer="5.6.7.8",
+            enabled=True,
+        )
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        assert json_data["update"]["enabled"] is True
+

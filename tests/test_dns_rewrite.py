@@ -237,6 +237,7 @@ class TestDnsRewriteModel:
 
         assert rewrite.domain == "ads.example.com"
         assert rewrite.answer == "0.0.0.0"
+        assert rewrite.enabled is True  # Default when not specified
 
     def test_dns_rewrite_defaults(self) -> None:
         """Test DnsRewrite with missing fields."""
@@ -244,3 +245,30 @@ class TestDnsRewriteModel:
 
         assert rewrite.domain == ""
         assert rewrite.answer == ""
+        assert rewrite.enabled is True  # Default
+
+    def test_dns_rewrite_with_enabled_field(self) -> None:
+        """Test DnsRewrite with enabled field (v0.107.68+)."""
+        data = {
+            "domain": "ads.example.com",
+            "answer": "0.0.0.0",
+            "enabled": False,
+        }
+        rewrite = DnsRewrite.from_dict(data)
+
+        assert rewrite.domain == "ads.example.com"
+        assert rewrite.answer == "0.0.0.0"
+        assert rewrite.enabled is False
+
+    def test_dns_rewrite_to_dict(self) -> None:
+        """Test DnsRewrite to_dict conversion."""
+        rewrite = DnsRewrite(
+            domain="test.example.com",
+            answer="192.168.1.1",
+            enabled=False,
+        )
+        result = rewrite.to_dict()
+
+        assert result["domain"] == "test.example.com"
+        assert result["answer"] == "192.168.1.1"
+        assert result["enabled"] is False
