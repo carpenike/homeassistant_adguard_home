@@ -1,0 +1,164 @@
+"""Tests for the AdGuard Home Extended sensor platform."""
+from __future__ import annotations
+
+import pytest
+from unittest.mock import MagicMock
+
+from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+from custom_components.adguard_home_extended.api.models import (
+    AdGuardHomeStatus,
+    AdGuardHomeStats,
+)
+
+
+class TestSensorEntityDescriptions:
+    """Tests for sensor entity descriptions."""
+
+    @pytest.fixture
+    def data_with_stats(self) -> AdGuardHomeData:
+        """Return data with stats."""
+        data = AdGuardHomeData()
+        data.status = AdGuardHomeStatus(
+            protection_enabled=True,
+            running=True,
+            version="0.107.43",
+        )
+        data.stats = AdGuardHomeStats(
+            dns_queries=12345,
+            blocked_filtering=1234,
+            replaced_safebrowsing=10,
+            replaced_parental=5,
+            replaced_safesearch=2,
+            avg_processing_time=15.5,
+            top_queried_domains=[{"example.com": 100}],
+            top_blocked_domains=[{"ads.example.com": 50}],
+            top_clients=[{"192.168.1.100": 500}],
+        )
+        return data
+
+    def test_dns_queries_value(self, data_with_stats: AdGuardHomeData) -> None:
+        """Test DNS queries sensor value extraction."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        dns_queries_desc = next(
+            d for d in SENSOR_TYPES if d.key == "dns_queries"
+        )
+        value = dns_queries_desc.value_fn(data_with_stats)
+        assert value == 12345
+
+    def test_blocked_queries_value(self, data_with_stats: AdGuardHomeData) -> None:
+        """Test blocked queries sensor value extraction."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        blocked_desc = next(
+            d for d in SENSOR_TYPES if d.key == "blocked_queries"
+        )
+        value = blocked_desc.value_fn(data_with_stats)
+        assert value == 1234
+
+    def test_blocked_percentage_value(self, data_with_stats: AdGuardHomeData) -> None:
+        """Test blocked percentage calculation."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        percentage_desc = next(
+            d for d in SENSOR_TYPES if d.key == "blocked_percentage"
+        )
+        value = percentage_desc.value_fn(data_with_stats)
+        # 1234 / 12345 * 100 ≈ 9.99...
+        assert value is not None
+        assert 9.9 < value < 10.1
+
+    def test_blocked_percentage_zero_queries(self) -> None:
+        """Test blocked percentage with zero queries."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        data = AdGuardHomeData()
+        data.stats = AdGuardHomeStats(dns_queries=0, blocked_filtering=0)
+
+        percentage_desc = next(
+            d for d in SENSOR_TYPES if d.key == "blocked_percentage"
+        )
+        value = percentage_desc.value_fn(data)
+        assert value == 0
+
+    def test_avg_processing_time_value(self, data_with_stats: AdGuardHomeData) -> None:
+        """Test average processing time sensor value extraction."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        avg_time_desc = next(
+            d for d in SENSOR_TYPES if d.key == "avg_processing_time"
+        )
+        value = avg_time_desc.value_fn(data_with_stats)
+        assert value == 15.5
+
+    def test_top_blocked_domain_value(self, data_with_stats: AdGuardHomeData) -> None:
+        """Test top blocked domain sensor value extraction."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        top_blocked_desc = next(
+            d for d in SENSOR_TYPES if d.key == "top_blocked_domain"
+        )
+        value = top_blocked_desc.value_fn(data_with_stats)
+        assert value == "ads.example.com"
+
+    def test_top_blocked_domain_empty(self) -> None:
+        """Test top blocked domain with no data."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        data = AdGuardHomeData()
+        data.stats = AdGuardHomeStats(top_blocked_domains=[])
+
+        top_blocked_desc = next(
+            d for d in SENSOR_TYPES if d.key == "top_blocked_domain"
+        )
+        value = top_blocked_desc.value_fn(data)
+        assert value is None
+
+    def test_top_client_value(self, data_with_stats: AdGuardHomeData) -> None:
+        """Test top client sensor value extraction."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        top_client_desc = next(
+            d for d in SENSOR_TYPES if d.key == "top_client"
+        )
+        value = top_client_desc.value_fn(data_with_stats)
+        assert value == "192.168.1.100"
+
+    def test_sensor_attributes(self, data_with_stats: AdGuardHomeData) -> None:
+        """Test sensor extra state attributes."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        # Test top_blocked_domain attributes
+        top_blocked_desc = next(
+            d for d in SENSOR_TYPES if d.key == "top_blocked_domain"
+        )
+        attrs = top_blocked_desc.extra_attrs_fn(data_with_stats)
+        assert "top_domains" in attrs
+        assert len(attrs["top_domains"]) == 1
+
+    def test_all_sensors_have_required_fields(self) -> None:
+        """Test all sensors have required fields."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        for sensor in SENSOR_TYPES:
+            assert sensor.key is not None
+            assert sensor.translation_key is not None
+            assert callable(sensor.value_fn)
+
+
+class TestSensorValues:
+    """Tests for sensor value handling edge cases."""
+
+    def test_none_data(self) -> None:
+        """Test sensor with None data."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        data = AdGuardHomeData()  # All fields are None
+
+        for sensor in SENSOR_TYPES:
+            # Should not raise an exception
+            try:
+                value = sensor.value_fn(data)
+                # Value can be None for missing data
+            except Exception as e:
+                pytest.fail(f"Sensor {sensor.key} raised exception with None data: {e}")
