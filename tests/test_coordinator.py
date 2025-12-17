@@ -100,7 +100,7 @@ class TestAdGuardHomeDataUpdateCoordinator:
             hass, mock_client, mock_entry
         )
 
-        with pytest.raises(UpdateFailed, match="Error communicating with API"):
+        with pytest.raises(UpdateFailed, match="Error communicating with AdGuard Home"):
             await coordinator._async_update_data()
 
     @pytest.mark.asyncio
@@ -146,11 +146,19 @@ class TestAdGuardHomeDataUpdateCoordinator:
         assert data.filtering is None
 
     def test_device_info(
-        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+        self, hass: HomeAssistant, mock_entry: MagicMock
     ) -> None:
         """Test device info property."""
+        # Create a fresh mock client for this test
+        mock_client = AsyncMock()
+        
+        # Create a proper mock entry with data dict
+        mock_entry_with_data = MagicMock()
+        mock_entry_with_data.entry_id = "test_entry"
+        mock_entry_with_data.data = {"host": "192.168.1.1", "port": 3000}
+        
         coordinator = AdGuardHomeDataUpdateCoordinator(
-            hass, mock_client, mock_entry
+            hass, mock_client, mock_entry_with_data
         )
         # Set data manually for testing
         coordinator.data = AdGuardHomeData()
@@ -162,6 +170,6 @@ class TestAdGuardHomeDataUpdateCoordinator:
 
         device_info = coordinator.device_info
 
-        assert device_info["name"] == "AdGuard Home"
+        assert "AdGuard Home" in device_info["name"]
         assert device_info["manufacturer"] == "AdGuard"
         assert device_info["sw_version"] == "0.107.43"

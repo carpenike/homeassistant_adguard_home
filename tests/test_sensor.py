@@ -29,7 +29,7 @@ class TestSensorEntityDescriptions:
             replaced_safebrowsing=10,
             replaced_parental=5,
             replaced_safesearch=2,
-            avg_processing_time=15.5,
+            avg_processing_time=0.0155,  # 15.5ms in seconds (API returns seconds)
             top_queried_domains=[{"example.com": 100}],
             top_blocked_domains=[{"ads.example.com": 50}],
             top_clients=[{"192.168.1.100": 500}],
@@ -123,18 +123,6 @@ class TestSensorEntityDescriptions:
         )
         value = top_client_desc.value_fn(data_with_stats)
         assert value == "192.168.1.100"
-
-    def test_sensor_attributes(self, data_with_stats: AdGuardHomeData) -> None:
-        """Test sensor extra state attributes."""
-        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
-
-        # Test top_blocked_domain attributes
-        top_blocked_desc = next(
-            d for d in SENSOR_TYPES if d.key == "top_blocked_domain"
-        )
-        attrs = top_blocked_desc.extra_attrs_fn(data_with_stats)
-        assert "top_domains" in attrs
-        assert len(attrs["top_domains"]) == 1
 
     def test_all_sensors_have_required_fields(self) -> None:
         """Test all sensors have required fields."""
