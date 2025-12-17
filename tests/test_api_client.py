@@ -22,11 +22,20 @@ def create_mock_response(
     status: int = 200, json_data: dict | list | None = None, content_length: int = 100
 ):
     """Create a mock response that works as an async context manager."""
+    import json as json_module
+
     mock_response = MagicMock()
     mock_response.status = status
     mock_response.content_length = content_length if json_data is not None else 0
     mock_response.json = AsyncMock(return_value=json_data)
     mock_response.raise_for_status = MagicMock()
+    # Add read() mock for the new implementation that reads body first
+    if json_data is not None:
+        mock_response.read = AsyncMock(
+            return_value=json_module.dumps(json_data).encode()
+        )
+    else:
+        mock_response.read = AsyncMock(return_value=b"")
     return mock_response
 
 
@@ -341,3 +350,48 @@ class TestAdGuardHomeClient:
 
         result = await client.test_connection()
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_chunked_response_no_content_length(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test handling chunked transfer encoding (content_length is None)."""
+        # Simulate chunked transfer encoding where content_length is None
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.content_length = None  # Chunked transfer encoding
+        mock_response.raise_for_status = MagicMock()
+        # read() returns the body
+        import json as json_module
+
+        mock_response.read = AsyncMock(
+            return_value=json_module.dumps(
+                {"protection_enabled": True, "running": True}
+            ).encode()
+        )
+
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        status = await client.get_status()
+
+        # Verify read() was called (our fix)
+        mock_response.read.assert_called_once()
+        assert status.protection_enabled is True
+
+    @pytest.mark.asyncio
+    async def test_empty_response_body(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test handling empty response body (e.g., POST with no return)."""
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.content_length = 0
+        mock_response.raise_for_status = MagicMock()
+        mock_response.read = AsyncMock(return_value=b"")
+
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        # For POST endpoints that return empty body, this should work
+        await client.set_protection(True)
+
+        # No exception should be raised

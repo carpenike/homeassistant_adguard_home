@@ -100,11 +100,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    # Register services only once (first entry)
+    # Register services before platforms to avoid race condition
+    # Services should be available when entities are created
     if not hass.services.has_service(DOMAIN, SERVICE_SET_BLOCKED_SERVICES):
         await _async_setup_services(hass)
+
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Add update listener for options changes
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
@@ -290,11 +291,30 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
+    # Clean up ClientEntityManager if it exists
+    if (
+        "client_managers" in hass.data.get(DOMAIN, {})
+        and entry.entry_id in hass.data[DOMAIN]["client_managers"]
+    ):
+        client_manager = hass.data[DOMAIN]["client_managers"].pop(entry.entry_id)
+        client_manager.async_unsubscribe()
+
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id)
+        hass.data[DOMAIN].pop(entry.entry_id, None)
+
+        # Clean up empty client_managers dict
+        if (
+            "client_managers" in hass.data.get(DOMAIN, {})
+            and not hass.data[DOMAIN]["client_managers"]
+        ):
+            hass.data[DOMAIN].pop("client_managers", None)
 
         # Unregister services when last instance is removed
-        if not hass.data[DOMAIN]:
+        # Check if there are no more coordinator entries (only client_managers might remain)
+        remaining_entries = {
+            k for k in hass.data.get(DOMAIN, {}).keys() if k != "client_managers"
+        }
+        if not remaining_entries:
             for service in [
                 SERVICE_SET_BLOCKED_SERVICES,
                 SERVICE_ADD_FILTER_URL,

@@ -1,6 +1,7 @@
 """AdGuard Home API client."""
 from __future__ import annotations
 
+import json
 import logging
 from base64 import b64encode
 from typing import Any
@@ -121,10 +122,13 @@ class AdGuardHomeClient:
                 response.raise_for_status()
 
                 # Some endpoints return empty body on success
-                if response.content_length == 0:
+                # Check content_length (may be None for chunked encoding)
+                # or read the body and check if it's empty
+                content = await response.read()
+                if not content:
                     return None
 
-                return await response.json()
+                return json.loads(content)
 
         except ClientResponseError as err:
             if err.status in (401, 403):

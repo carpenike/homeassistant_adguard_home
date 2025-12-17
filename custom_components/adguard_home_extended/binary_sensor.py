@@ -10,12 +10,13 @@ from homeassistant.components.binary_sensor import (
     BinarySensorEntityDescription,
 )
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import AdGuardHomeDataUpdateCoordinator, AdGuardHomeData
+from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -36,13 +37,12 @@ BINARY_SENSOR_TYPES: tuple[AdGuardHomeBinarySensorEntityDescription, ...] = (
         key="protection_enabled",
         translation_key="protection_enabled",
         device_class=BinarySensorDeviceClass.SAFETY,
-        is_on_fn=lambda data: (
-            data.status.protection_enabled if data.status else None
-        ),
+        is_on_fn=lambda data: (data.status.protection_enabled if data.status else None),
     ),
     AdGuardHomeBinarySensorEntityDescription(
         key="dhcp_enabled",
         translation_key="dhcp_enabled",
+        entity_category=EntityCategory.DIAGNOSTIC,
         is_on_fn=lambda data: data.dhcp.enabled if data.dhcp else None,
     ),
 )

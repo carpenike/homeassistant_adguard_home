@@ -22,15 +22,7 @@ class TestConfigFlow:
     @pytest.mark.asyncio
     async def test_form_user_success(self, hass: HomeAssistant) -> None:
         """Test successful user form submission."""
-        flow = AdGuardHomeConfigFlow()
-        flow.hass = hass
-
-        # Get the form first
-        result = await flow.async_step_user()
-        assert result["type"] == FlowResultType.FORM
-        assert result["step_id"] == "user"
-
-        # Now submit the form with mocked client
+        # Use proper flow initialization through hass for correct context handling
         with patch(
             "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
         ) as mock_client_class:
@@ -42,6 +34,16 @@ class TestConfigFlow:
             )
             mock_client.get_status = AsyncMock(return_value=mock_status)
             mock_client_class.return_value = mock_client
+
+            # Initialize flow properly
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "user"}
+
+            # Get the form first
+            result = await flow.async_step_user()
+            assert result["type"] == FlowResultType.FORM
+            assert result["step_id"] == "user"
 
             result = await flow.async_step_user(
                 user_input={
@@ -58,6 +60,92 @@ class TestConfigFlow:
             assert "192.168.1.1" in result["title"]
             assert result["data"]["host"] == "192.168.1.1"
             assert result["data"]["port"] == 3000
+
+    @pytest.mark.asyncio
+    async def test_form_user_sets_unique_id(self, hass: HomeAssistant) -> None:
+        """Test that successful submission sets a unique ID."""
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_status = AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",
+            )
+            mock_client.get_status = AsyncMock(return_value=mock_status)
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "user"}
+
+            result = await flow.async_step_user(
+                user_input={
+                    "host": "192.168.1.1",
+                    "port": 3000,
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            # Verify unique_id was set (host:port format)
+            assert flow.unique_id == "192.168.1.1:3000"
+
+    @pytest.mark.asyncio
+    async def test_form_user_already_configured(self, hass: HomeAssistant) -> None:
+        """Test that duplicate entries are aborted."""
+        from homeassistant.data_entry_flow import AbortFlow
+
+        # Create a mock existing entry with same unique_id
+        mock_entry = MagicMock()
+        mock_entry.unique_id = "192.168.1.1:3000"
+
+        # Register the existing entry
+        hass.config_entries = MagicMock()
+        hass.config_entries._entries = MagicMock()
+        hass.config_entries.async_entries = MagicMock(return_value=[mock_entry])
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_status = AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",
+            )
+            mock_client.get_status = AsyncMock(return_value=mock_status)
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "user"}
+
+            # Mock the _abort_if_unique_id_configured to actually abort
+            def abort_if_configured(*args, **kwargs):
+                if flow.unique_id == mock_entry.unique_id:
+                    raise AbortFlow("already_configured")
+
+            flow._abort_if_unique_id_configured = abort_if_configured
+
+            # The AbortFlow exception should be raised
+            with pytest.raises(AbortFlow) as exc_info:
+                await flow.async_step_user(
+                    user_input={
+                        "host": "192.168.1.1",
+                        "port": 3000,
+                        "username": "admin",
+                        "password": "password",
+                        "ssl": False,
+                        "verify_ssl": True,
+                    }
+                )
+
+            assert exc_info.value.reason == "already_configured"
 
     @pytest.mark.asyncio
     async def test_form_user_cannot_connect(self, hass: HomeAssistant) -> None:

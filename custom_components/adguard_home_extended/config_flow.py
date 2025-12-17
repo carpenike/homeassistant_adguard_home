@@ -93,6 +93,11 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
+                # Set unique ID based on host and port to prevent duplicates
+                unique_id = f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured()
+
                 # Create a title from the host
                 title = f"AdGuard Home ({user_input[CONF_HOST]})"
                 if status.version:

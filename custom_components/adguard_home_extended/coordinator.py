@@ -69,9 +69,9 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
             _LOGGER,
             name=DOMAIN,
             update_interval=timedelta(seconds=scan_interval),
+            config_entry=entry,
         )
         self.client = client
-        self.config_entry = entry
 
     async def _async_update_data(self) -> AdGuardHomeData:
         """Fetch data from AdGuard Home."""

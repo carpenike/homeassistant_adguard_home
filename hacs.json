@@ -4,6 +4,5 @@
   "render_readme": true,
   "content_in_root": false,
   "filename": "adguard_home_extended",
-  "country": ["ALL"],
-  "icon": "custom_components/adguard_home_extended/icon.png"
+  "country": ["ALL"]
 }
