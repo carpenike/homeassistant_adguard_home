@@ -169,7 +169,7 @@ class TestAdGuardHomeDataUpdateCoordinator:
         assert data.filtering is None
 
     def test_device_info(self, hass: HomeAssistant, mock_entry: MagicMock) -> None:
-        """Test device info property."""
+        """Test device info property returns DeviceInfo TypedDict."""
         # Create a fresh mock client for this test
         mock_client = AsyncMock()
 
@@ -192,6 +192,11 @@ class TestAdGuardHomeDataUpdateCoordinator:
 
         device_info = coordinator.device_info
 
+        # DeviceInfo is a TypedDict, verify required keys are present
+        assert "identifiers" in device_info
+        assert "name" in device_info
+        assert "manufacturer" in device_info
+        assert "sw_version" in device_info
         assert "AdGuard Home" in device_info["name"]
         assert device_info["manufacturer"] == "AdGuard"
         assert device_info["sw_version"] == "0.107.43"

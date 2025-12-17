@@ -395,3 +395,64 @@ class TestAdGuardHomeClient:
         await client.set_protection(True)
 
         # No exception should be raised
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_basic(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting query log with default parameters."""
+
+        mock_response = create_mock_response(
+            json_data={"data": [{"question": "example.com"}]}
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.get_query_log()
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        # Verify the URL contains limit and offset but not search
+        url = call_args[0][1]
+        assert "limit=100" in url
+        assert "offset=0" in url
+        assert "search=" not in url
+        assert result == [{"question": "example.com"}]
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_with_search(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting query log with search parameter."""
+
+        mock_response = create_mock_response(
+            json_data={"data": [{"question": "ads.example.com"}]}
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.get_query_log(limit=50, offset=10, search="ads")
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        # Verify the URL contains all parameters including search
+        url = call_args[0][1]
+        assert "limit=50" in url
+        assert "offset=10" in url
+        assert "search=ads" in url
+        assert result == [{"question": "ads.example.com"}]
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_custom_limit_offset(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting query log with custom limit and offset."""
+        mock_response = create_mock_response(json_data={"data": []})
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.get_query_log(limit=500, offset=100)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        url = call_args[0][1]
+        assert "limit=500" in url
+        assert "offset=100" in url
+        assert result == []

@@ -56,6 +56,7 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
     """Handle a config flow for AdGuard Home Extended."""
 
     VERSION = 1
+    MINOR_VERSION = 1
 
     @staticmethod
     @callback

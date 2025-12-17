@@ -7,6 +7,8 @@
   "documentation": "https://github.com/carpenike/homeassistant_adguard_home",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/carpenike/homeassistant_adguard_home/issues",
+  "loggers": ["custom_components.adguard_home_extended"],
+  "quality_scale": "silver",
   "requirements": [],
   "version": "0.1.0",
   "integration_type": "hub"

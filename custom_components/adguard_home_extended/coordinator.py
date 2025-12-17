@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -25,7 +26,12 @@ from .api.models import (
     DnsRewrite,
     FilteringStatus,
 )
-from .const import CONF_QUERY_LOG_LIMIT, DEFAULT_QUERY_LOG_LIMIT, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import (
+    CONF_QUERY_LOG_LIMIT,
+    DEFAULT_QUERY_LOG_LIMIT,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -149,16 +155,16 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
         return data
 
     @property
-    def device_info(self) -> dict[str, Any]:
+    def device_info(self) -> DeviceInfo:
         """Return device info for this AdGuard Home instance."""
         version = "unknown"
         if self.data and self.data.status:
             version = self.data.status.version
 
-        return {
-            "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-            "name": f"AdGuard Home ({self.config_entry.data.get('host', 'unknown')})",
-            "manufacturer": "AdGuard",
-            "model": "AdGuard Home",
-            "sw_version": version,
-        }
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.config_entry.entry_id)},
+            name=f"AdGuard Home ({self.config_entry.data.get('host', 'unknown')})",
+            manufacturer="AdGuard",
+            model="AdGuard Home",
+            sw_version=version,
+        )

@@ -311,10 +311,11 @@ class AdGuardHomeClient:
         search: str | None = None,
     ) -> list[dict]:
         """Get query log entries."""
-        params = {"limit": limit, "offset": offset}
+        query_parts = [f"limit={limit}", f"offset={offset}"]
         if search:
-            params["search"] = search
-        data = await self._get(f"{API_QUERYLOG}?limit={limit}&offset={offset}")
+            query_parts.append(f"search={search}")
+        query_string = "&".join(query_parts)
+        data = await self._get(f"{API_QUERYLOG}?{query_string}")
         return data.get("data", []) if data else []
 
     # DHCP
