@@ -154,6 +154,7 @@ class TestClientConfig:
         data = {
             "name": "Kids Tablet",
             "ids": ["192.168.1.100", "AA:BB:CC:DD:EE:FF"],
+            "uid": "client-abc123",
             "use_global_settings": False,
             "filtering_enabled": True,
             "parental_enabled": True,
@@ -167,6 +168,7 @@ class TestClientConfig:
 
         assert client.name == "Kids Tablet"
         assert len(client.ids) == 2
+        assert client.uid == "client-abc123"
         assert client.use_global_settings is False
         assert client.filtering_enabled is True
         assert client.parental_enabled is True
@@ -182,6 +184,7 @@ class TestClientConfig:
 
         assert client.name == "Test"
         assert client.ids == []
+        assert client.uid == ""
         assert client.use_global_settings is True
         assert client.filtering_enabled is True
         assert client.parental_enabled is False
@@ -262,3 +265,54 @@ class TestDhcpStatus:
 
         assert status.enabled is False
         assert status.leases == []
+        assert status.v4 is None
+        assert status.v6 is None
+
+    def test_from_dict_with_v4_config(self) -> None:
+        """Test creating DHCP status with v4 configuration."""
+        from custom_components.adguard_home_extended.api.models import DhcpV4Config
+
+        data = {
+            "enabled": True,
+            "interface_name": "eth0",
+            "v4": {
+                "gateway_ip": "192.168.1.1",
+                "subnet_mask": "255.255.255.0",
+                "range_start": "192.168.1.100",
+                "range_end": "192.168.1.200",
+                "lease_duration": 86400,
+            },
+            "leases": [],
+            "static_leases": [],
+        }
+        status = DhcpStatus.from_dict(data)
+
+        assert status.enabled is True
+        assert status.interface_name == "eth0"
+        assert status.v4 is not None
+        assert isinstance(status.v4, DhcpV4Config)
+        assert status.v4.gateway_ip == "192.168.1.1"
+        assert status.v4.subnet_mask == "255.255.255.0"
+        assert status.v4.range_start == "192.168.1.100"
+        assert status.v4.range_end == "192.168.1.200"
+        assert status.v4.lease_duration == 86400
+
+    def test_from_dict_with_v6_config(self) -> None:
+        """Test creating DHCP status with v6 configuration."""
+        from custom_components.adguard_home_extended.api.models import DhcpV6Config
+
+        data = {
+            "enabled": True,
+            "v6": {
+                "range_start": "2001:db8::100",
+                "lease_duration": 43200,
+            },
+            "leases": [],
+            "static_leases": [],
+        }
+        status = DhcpStatus.from_dict(data)
+
+        assert status.v6 is not None
+        assert isinstance(status.v6, DhcpV6Config)
+        assert status.v6.range_start == "2001:db8::100"
+        assert status.v6.lease_duration == 43200

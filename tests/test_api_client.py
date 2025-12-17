@@ -197,6 +197,38 @@ class TestAdGuardHomeClient:
         assert "/control/protection" in call_args[0][1]
 
     @pytest.mark.asyncio
+    async def test_set_protection_with_duration(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test disabling protection with auto-resume duration."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        # Disable protection for 1 hour (3600000 ms)
+        await client.set_protection(False, duration_ms=3600000)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/protection" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_pause_protection(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test pausing protection for a duration."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        # Pause for 30 minutes
+        await client.pause_protection(duration_ms=1800000)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/protection" in call_args[0][1]
+
+    @pytest.mark.asyncio
     async def test_get_blocked_services_new_format(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
@@ -456,3 +488,80 @@ class TestAdGuardHomeClient:
         assert "limit=500" in url
         assert "offset=100" in url
         assert result == []
+
+    @pytest.mark.asyncio
+    async def test_get_dns_info(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting DNS configuration info."""
+        dns_info = {
+            "cache_enabled": True,
+            "cache_size": 4194304,
+            "cache_ttl_min": 0,
+            "cache_ttl_max": 0,
+            "upstream_dns": ["https://dns.cloudflare.com/dns-query"],
+        }
+        mock_response = create_mock_response(json_data=dns_info)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.get_dns_info()
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "GET"
+        assert "/control/dns_info" in call_args[0][1]
+        assert result["cache_enabled"] is True
+        assert result["cache_size"] == 4194304
+
+    @pytest.mark.asyncio
+    async def test_set_dns_config(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting DNS configuration."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_dns_config({"cache_enabled": False, "cache_size": 8388608})
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/dns_config" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_set_dns_cache_enabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test enabling/disabling DNS cache."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_dns_cache_enabled(True)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/dns_config" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_update_rewrite(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test updating a DNS rewrite rule."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.update_rewrite(
+            old_domain="old.example.com",
+            old_answer="1.2.3.4",
+            new_domain="new.example.com",
+            new_answer="5.6.7.8",
+        )
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "PUT"
+        assert "/control/rewrite/update" in call_args[0][1]

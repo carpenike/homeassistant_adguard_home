@@ -106,6 +106,7 @@ class AdGuardHomeClient:
 
     name: str
     ids: list[str] = field(default_factory=list)
+    uid: str = ""  # Unique identifier (v0.107.46+)
     use_global_settings: bool = True
     filtering_enabled: bool = True
     parental_enabled: bool = False
@@ -121,6 +122,7 @@ class AdGuardHomeClient:
         return cls(
             name=data.get("name", ""),
             ids=data.get("ids", []),
+            uid=data.get("uid", ""),
             use_global_settings=data.get("use_global_settings", True),
             filtering_enabled=data.get("filtering_enabled", True),
             parental_enabled=data.get("parental_enabled", False),
@@ -187,20 +189,64 @@ class DhcpLease:
 
 
 @dataclass
+class DhcpV4Config:
+    """AdGuard Home DHCP v4 configuration."""
+
+    gateway_ip: str = ""
+    subnet_mask: str = ""
+    range_start: str = ""
+    range_end: str = ""
+    lease_duration: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DhcpV4Config:
+        """Create instance from API response dict."""
+        return cls(
+            gateway_ip=data.get("gateway_ip", ""),
+            subnet_mask=data.get("subnet_mask", ""),
+            range_start=data.get("range_start", ""),
+            range_end=data.get("range_end", ""),
+            lease_duration=data.get("lease_duration", 0),
+        )
+
+
+@dataclass
+class DhcpV6Config:
+    """AdGuard Home DHCP v6 configuration."""
+
+    range_start: str = ""
+    lease_duration: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DhcpV6Config:
+        """Create instance from API response dict."""
+        return cls(
+            range_start=data.get("range_start", ""),
+            lease_duration=data.get("lease_duration", 0),
+        )
+
+
+@dataclass
 class DhcpStatus:
     """AdGuard Home DHCP status."""
 
     enabled: bool = False
     interface_name: str = ""
+    v4: DhcpV4Config | None = None
+    v6: DhcpV6Config | None = None
     leases: list[DhcpLease] = field(default_factory=list)
     static_leases: list[DhcpLease] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DhcpStatus:
         """Create instance from API response dict."""
+        v4_data = data.get("v4")
+        v6_data = data.get("v6")
         return cls(
             enabled=data.get("enabled", False),
             interface_name=data.get("interface_name", ""),
+            v4=DhcpV4Config.from_dict(v4_data) if v4_data else None,
+            v6=DhcpV6Config.from_dict(v6_data) if v6_data else None,
             leases=[DhcpLease.from_dict(lease) for lease in data.get("leases", [])],
             static_leases=[
                 DhcpLease.from_dict(lease) for lease in data.get("static_leases", [])

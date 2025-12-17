@@ -45,7 +45,10 @@ API_BLOCKED_SERVICES_SET: Final = "/control/blocked_services/set"
 API_REWRITE_LIST: Final = "/control/rewrite/list"
 API_REWRITE_ADD: Final = "/control/rewrite/add"
 API_REWRITE_DELETE: Final = "/control/rewrite/delete"
+API_REWRITE_UPDATE: Final = "/control/rewrite/update"
 API_DHCP_STATUS: Final = "/control/dhcp/status"
+API_DNS_INFO: Final = "/control/dns_info"
+API_DNS_CONFIG: Final = "/control/dns_config"
 
 # Attributes
 ATTR_PROCESSING_TIME: Final = "avg_processing_time"

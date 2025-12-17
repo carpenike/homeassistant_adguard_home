@@ -17,6 +17,8 @@ from ..const import (
     API_CLIENTS_DELETE,
     API_CLIENTS_UPDATE,
     API_DHCP_STATUS,
+    API_DNS_CONFIG,
+    API_DNS_INFO,
     API_FILTERING_ADD_URL,
     API_FILTERING_CONFIG,
     API_FILTERING_REFRESH,
@@ -29,6 +31,7 @@ from ..const import (
     API_REWRITE_ADD,
     API_REWRITE_DELETE,
     API_REWRITE_LIST,
+    API_REWRITE_UPDATE,
     API_SAFEBROWSING_DISABLE,
     API_SAFEBROWSING_ENABLE,
     API_SAFESEARCH_DISABLE,
@@ -145,6 +148,10 @@ class AdGuardHomeClient:
         """Make a POST request."""
         return await self._request("POST", endpoint, data)
 
+    async def _put(self, endpoint: str, data: dict[str, Any] | None = None) -> Any:
+        """Make a PUT request."""
+        return await self._request("PUT", endpoint, data)
+
     # Status and stats
     async def get_status(self) -> AdGuardHomeStatus:
         """Get server status."""
@@ -157,9 +164,28 @@ class AdGuardHomeClient:
         return AdGuardHomeStats.from_dict(data)
 
     # Protection toggles
-    async def set_protection(self, enabled: bool) -> None:
-        """Enable or disable protection."""
-        await self._post(API_PROTECTION, {"enabled": enabled})
+    async def set_protection(
+        self, enabled: bool, duration_ms: int | None = None
+    ) -> None:
+        """Enable or disable protection.
+
+        Args:
+            enabled: Whether protection should be enabled.
+            duration_ms: If disabling, auto-resume after this many milliseconds.
+                        Only used when enabled=False.
+        """
+        data: dict[str, Any] = {"enabled": enabled}
+        if not enabled and duration_ms is not None:
+            data["duration"] = duration_ms
+        await self._post(API_PROTECTION, data)
+
+    async def pause_protection(self, duration_ms: int) -> None:
+        """Temporarily pause protection with auto-resume.
+
+        Args:
+            duration_ms: Resume protection after this many milliseconds.
+        """
+        await self.set_protection(enabled=False, duration_ms=duration_ms)
 
     async def set_safebrowsing(self, enabled: bool) -> None:
         """Enable or disable safe browsing."""
@@ -303,6 +329,29 @@ class AdGuardHomeClient:
         """Delete a DNS rewrite."""
         await self._post(API_REWRITE_DELETE, {"domain": domain, "answer": answer})
 
+    async def update_rewrite(
+        self,
+        old_domain: str,
+        old_answer: str,
+        new_domain: str,
+        new_answer: str,
+    ) -> None:
+        """Update an existing DNS rewrite.
+
+        Args:
+            old_domain: Current domain of the rewrite rule.
+            old_answer: Current answer of the rewrite rule.
+            new_domain: New domain for the rewrite rule.
+            new_answer: New answer for the rewrite rule.
+        """
+        await self._put(
+            API_REWRITE_UPDATE,
+            {
+                "target": {"domain": old_domain, "answer": old_answer},
+                "update": {"domain": new_domain, "answer": new_answer},
+            },
+        )
+
     # Query log
     async def get_query_log(
         self,
@@ -323,6 +372,33 @@ class AdGuardHomeClient:
         """Get DHCP status."""
         data = await self._get(API_DHCP_STATUS)
         return DhcpStatus.from_dict(data)
+
+    # DNS configuration
+    async def get_dns_info(self) -> dict[str, Any]:
+        """Get DNS configuration info.
+
+        Returns DNS server settings including cache configuration.
+        Available in AdGuard Home v0.107.65+.
+        """
+        data = await self._get(API_DNS_INFO)
+        return data or {}
+
+    async def set_dns_config(self, config: dict[str, Any]) -> None:
+        """Set DNS configuration.
+
+        Args:
+            config: Dictionary with DNS config fields to update.
+                    Common fields: cache_enabled, cache_size, cache_ttl_min, etc.
+        """
+        await self._post(API_DNS_CONFIG, config)
+
+    async def set_dns_cache_enabled(self, enabled: bool) -> None:
+        """Enable or disable DNS caching.
+
+        Args:
+            enabled: True to enable DNS cache, False to disable.
+        """
+        await self.set_dns_config({"cache_enabled": enabled})
 
     # Connection test
     async def test_connection(self) -> bool:
