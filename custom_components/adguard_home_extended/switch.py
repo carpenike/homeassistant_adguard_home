@@ -80,9 +80,16 @@ async def async_setup_entry(
     """Set up AdGuard Home switches based on a config entry."""
     coordinator: AdGuardHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
-    async_add_entities(
+    entities: list[SwitchEntity] = [
         AdGuardHomeSwitch(coordinator, description) for description in SWITCH_TYPES
-    )
+    ]
+
+    # Add per-client switches
+    from .client_entities import create_client_entities
+    client_entities = await create_client_entities(hass, entry, coordinator)
+    entities.extend(client_entities)
+
+    async_add_entities(entities)
 
 
 class AdGuardHomeSwitch(

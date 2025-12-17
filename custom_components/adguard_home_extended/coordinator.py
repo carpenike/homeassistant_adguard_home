@@ -66,6 +66,19 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
         self.client = client
         self.config_entry = entry
 
+    @property
+    def device_info(self) -> dict[str, Any]:
+        """Return device information for the AdGuard Home instance."""
+        return {
+            "identifiers": {(DOMAIN, self.config_entry.entry_id)},
+            "name": "AdGuard Home",
+            "manufacturer": "AdGuard",
+            "model": "AdGuard Home",
+            "sw_version": (
+                self.data.status.version if self.data and self.data.status else None
+            ),
+        }
+
     async def _async_update_data(self) -> AdGuardHomeData:
         """Fetch data from AdGuard Home."""
         data = AdGuardHomeData()

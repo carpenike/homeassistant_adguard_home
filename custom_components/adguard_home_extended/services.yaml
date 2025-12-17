@@ -58,3 +58,22 @@ remove_filter_url:
 refresh_filters:
   name: Refresh Filters
   description: Force refresh all filter lists in AdGuard Home. This downloads the latest versions of all enabled filter lists.
+
+set_client_blocked_services:
+  name: Set Client Blocked Services
+  description: Set the list of services to block for a specific client. This automatically disables "use global blocked services" for the client.
+  fields:
+    client_name:
+      name: Client Name
+      description: The name of the client to configure (must match a configured client in AdGuard Home).
+      required: true
+      example: "Kids Tablet"
+      selector:
+        text:
+    services:
+      name: Services
+      description: List of service IDs to block for this client (e.g., facebook, youtube, tiktok). Services not in this list will be unblocked for this client.
+      required: true
+      example: '["tiktok", "youtube", "instagram"]'
+      selector:
+        object:
