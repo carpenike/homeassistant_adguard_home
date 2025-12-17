@@ -1,27 +1,26 @@
 """Tests for the AdGuard Home Extended API client."""
 from __future__ import annotations
 
-from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiohttp import ClientError, ClientResponseError
-from unittest.mock import AsyncMock, MagicMock, patch
+from aiohttp import ClientError
 
 from custom_components.adguard_home_extended.api.client import (
-    AdGuardHomeClient,
-    AdGuardHomeError,
-    AdGuardHomeConnectionError,
     AdGuardHomeAuthError,
+    AdGuardHomeClient,
+    AdGuardHomeConnectionError,
 )
 from custom_components.adguard_home_extended.api.models import (
-    AdGuardHomeStatus,
     AdGuardHomeStats,
+    AdGuardHomeStatus,
     FilteringStatus,
-    BlockedService,
 )
 
 
-def create_mock_response(status: int = 200, json_data: dict | list | None = None, content_length: int = 100):
+def create_mock_response(
+    status: int = 200, json_data: dict | list | None = None, content_length: int = 100
+):
     """Create a mock response that works as an async context manager."""
     mock_response = MagicMock()
     mock_response.status = status
@@ -134,7 +133,7 @@ class TestAdGuardHomeClient:
                 "dns_port": 53,
                 "http_port": 3000,
                 "version": "0.107.43",
-            }
+            },
         )
         mock_session.request.return_value = MockContextManager(mock_response)
 
@@ -162,7 +161,7 @@ class TestAdGuardHomeClient:
                 "top_queried_domains": [],
                 "top_blocked_domains": [],
                 "top_clients": [],
-            }
+            },
         )
         mock_session.request.return_value = MockContextManager(mock_response)
 
@@ -189,13 +188,26 @@ class TestAdGuardHomeClient:
         assert "/control/protection" in call_args[0][1]
 
     @pytest.mark.asyncio
-    async def test_get_blocked_services(
+    async def test_get_blocked_services_new_format(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test getting blocked services."""
+        """Test getting blocked services with new API format."""
         mock_response = create_mock_response(
-            status=200,
-            json_data=["facebook", "tiktok"]
+            status=200, json_data={"ids": ["facebook", "tiktok"], "schedule": {}}
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        services = await client.get_blocked_services()
+
+        assert services == ["facebook", "tiktok"]
+
+    @pytest.mark.asyncio
+    async def test_get_blocked_services_legacy_format(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting blocked services with legacy API format (list)."""
+        mock_response = create_mock_response(
+            status=200, json_data=["facebook", "tiktok"]
         )
         mock_session.request.return_value = MockContextManager(mock_response)
 
@@ -207,13 +219,69 @@ class TestAdGuardHomeClient:
     async def test_set_blocked_services(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test setting blocked services."""
+        """Test setting blocked services uses new API format."""
         mock_response = create_mock_response(status=200, json_data=None)
         mock_session.request.return_value = MockContextManager(mock_response)
 
         await client.set_blocked_services(["facebook", "youtube"])
 
         mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        # Verify it sends the new format {"ids": [...]}
+        assert call_args[1]["json"] == {"ids": ["facebook", "youtube"]}
+
+    @pytest.mark.asyncio
+    async def test_get_filtering_status(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting filtering status."""
+        mock_response = create_mock_response(
+            status=200,
+            json_data={
+                "enabled": True,
+                "interval": 12,
+                "filters": [],
+                "whitelist_filters": [],
+                "user_rules": [],
+            },
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        status = await client.get_filtering_status()
+
+        assert isinstance(status, FilteringStatus)
+        assert status.enabled is True
+        assert status.interval == 12
+
+    @pytest.mark.asyncio
+    async def test_set_filtering_enabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test enabling filtering."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_filtering(True)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/filtering/config" in call_args[0][1]
+        assert call_args[1]["json"] == {"enabled": True, "interval": 24}
+
+    @pytest.mark.asyncio
+    async def test_set_filtering_disabled_custom_interval(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test disabling filtering with custom interval."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_filtering(False, interval=12)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[1]["json"] == {"enabled": False, "interval": 12}
 
     @pytest.mark.asyncio
     async def test_auth_error_401(
@@ -257,7 +325,7 @@ class TestAdGuardHomeClient:
             json_data={
                 "protection_enabled": True,
                 "running": True,
-            }
+            },
         )
         mock_session.request.return_value = MockContextManager(mock_response)
 

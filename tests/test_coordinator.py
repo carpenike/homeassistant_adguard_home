@@ -1,24 +1,26 @@
 """Tests for the AdGuard Home Extended coordinator."""
 from __future__ import annotations
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import timedelta
+from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from custom_components.adguard_home_extended.coordinator import (
-    AdGuardHomeDataUpdateCoordinator,
-    AdGuardHomeData,
-)
 from custom_components.adguard_home_extended.api.client import (
-    AdGuardHomeConnectionError,
     AdGuardHomeAuthError,
+    AdGuardHomeConnectionError,
 )
 from custom_components.adguard_home_extended.api.models import (
-    AdGuardHomeStatus,
     AdGuardHomeStats,
+    AdGuardHomeStatus,
+)
+from custom_components.adguard_home_extended.const import DEFAULT_SCAN_INTERVAL
+from custom_components.adguard_home_extended.coordinator import (
+    AdGuardHomeData,
+    AdGuardHomeDataUpdateCoordinator,
 )
 
 
@@ -45,15 +47,19 @@ class TestAdGuardHomeDataUpdateCoordinator:
     def mock_client(self) -> AsyncMock:
         """Return a mock AdGuard Home client."""
         client = AsyncMock()
-        client.get_status = AsyncMock(return_value=AdGuardHomeStatus(
-            protection_enabled=True,
-            running=True,
-            version="0.107.43",
-        ))
-        client.get_stats = AsyncMock(return_value=AdGuardHomeStats(
-            dns_queries=1000,
-            blocked_filtering=100,
-        ))
+        client.get_status = AsyncMock(
+            return_value=AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",
+            )
+        )
+        client.get_stats = AsyncMock(
+            return_value=AdGuardHomeStats(
+                dns_queries=1000,
+                blocked_filtering=100,
+            )
+        )
         client.get_filtering_status = AsyncMock(return_value=MagicMock())
         client.get_blocked_services = AsyncMock(return_value=["facebook"])
         client.get_all_blocked_services = AsyncMock(return_value=[])
@@ -66,16 +72,35 @@ class TestAdGuardHomeDataUpdateCoordinator:
         """Return a mock config entry."""
         entry = MagicMock()
         entry.entry_id = "test_entry"
+        entry.options = {}  # Empty options, should use default
         return entry
+
+    def test_scan_interval_default(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test coordinator uses default scan interval when no options set."""
+        mock_entry.options = {}
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        assert coordinator.update_interval == timedelta(seconds=DEFAULT_SCAN_INTERVAL)
+
+    def test_scan_interval_from_options(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test coordinator uses scan interval from options."""
+        mock_entry.options = {CONF_SCAN_INTERVAL: 120}
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        assert coordinator.update_interval == timedelta(seconds=120)
 
     @pytest.mark.asyncio
     async def test_update_data_success(
         self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
     ) -> None:
         """Test successful data update."""
-        coordinator = AdGuardHomeDataUpdateCoordinator(
-            hass, mock_client, mock_entry
-        )
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
 
         data = await coordinator._async_update_data()
 
@@ -96,9 +121,7 @@ class TestAdGuardHomeDataUpdateCoordinator:
             side_effect=AdGuardHomeConnectionError("Connection failed")
         )
 
-        coordinator = AdGuardHomeDataUpdateCoordinator(
-            hass, mock_client, mock_entry
-        )
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
 
         with pytest.raises(UpdateFailed, match="Error communicating with AdGuard Home"):
             await coordinator._async_update_data()
@@ -115,9 +138,7 @@ class TestAdGuardHomeDataUpdateCoordinator:
             side_effect=AdGuardHomeAuthError("Invalid credentials")
         )
 
-        coordinator = AdGuardHomeDataUpdateCoordinator(
-            hass, mock_client, mock_entry
-        )
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
 
         with pytest.raises(ConfigEntryAuthFailed):
             await coordinator._async_update_data()
@@ -132,9 +153,7 @@ class TestAdGuardHomeDataUpdateCoordinator:
             side_effect=AdGuardHomeConnectionError("Endpoint not available")
         )
 
-        coordinator = AdGuardHomeDataUpdateCoordinator(
-            hass, mock_client, mock_entry
-        )
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
 
         data = await coordinator._async_update_data()
 
@@ -145,18 +164,17 @@ class TestAdGuardHomeDataUpdateCoordinator:
         # Filtering should be None due to error
         assert data.filtering is None
 
-    def test_device_info(
-        self, hass: HomeAssistant, mock_entry: MagicMock
-    ) -> None:
+    def test_device_info(self, hass: HomeAssistant, mock_entry: MagicMock) -> None:
         """Test device info property."""
         # Create a fresh mock client for this test
         mock_client = AsyncMock()
-        
-        # Create a proper mock entry with data dict
+
+        # Create a proper mock entry with data dict and options
         mock_entry_with_data = MagicMock()
         mock_entry_with_data.entry_id = "test_entry"
         mock_entry_with_data.data = {"host": "192.168.1.1", "port": 3000}
-        
+        mock_entry_with_data.options = {}  # Empty options, use default scan interval
+
         coordinator = AdGuardHomeDataUpdateCoordinator(
             hass, mock_client, mock_entry_with_data
         )

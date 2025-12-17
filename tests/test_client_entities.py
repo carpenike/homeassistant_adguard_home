@@ -1,17 +1,15 @@
 """Tests for the AdGuard Home Extended per-client entities."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
+
 from custom_components.adguard_home_extended.client_entities import (
-    create_client_entities,
     AdGuardClientFilteringSwitch,
     AdGuardClientParentalSwitch,
-    AdGuardClientSafeBrowsingSwitch,
-    AdGuardClientSafeSearchSwitch,
     AdGuardClientUseGlobalSettingsSwitch,
-    AdGuardClientUseGlobalBlockedServicesSwitch,
+    create_client_entities,
 )
 from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
 
@@ -322,3 +320,144 @@ class TestClientAvailability:
 
         switch = AdGuardClientFilteringSwitch(coordinator, "Test Client")
         assert switch.available is False
+
+
+class TestClientEntityManager:
+    """Tests for ClientEntityManager."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Client1",
+                "ids": ["192.168.1.100"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        coordinator.hass = MagicMock()
+        coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+        return coordinator
+
+    @pytest.mark.asyncio
+    async def test_initial_setup_creates_entities(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test that initial setup creates entities for existing clients."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(mock_coordinator, async_add_entities)
+        await manager.async_setup()
+
+        # Should have created 6 entities for 1 client
+        assert async_add_entities.call_count == 1
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 6
+        assert manager._tracked_clients == {"Client1"}
+
+    @pytest.mark.asyncio
+    async def test_new_client_adds_entities(self, mock_coordinator: MagicMock) -> None:
+        """Test that new clients get entities added."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(mock_coordinator, async_add_entities)
+        await manager.async_setup()
+
+        # Reset the mock
+        async_add_entities.reset_mock()
+
+        # Add a new client
+        mock_coordinator.data.clients.append(
+            {
+                "name": "Client2",
+                "ids": ["192.168.1.101"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            }
+        )
+
+        # Manually trigger the check (normally called by listener)
+        await manager._async_add_new_client_entities()
+
+        # Should have added 6 entities for the new client
+        assert async_add_entities.call_count == 1
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 6
+        assert manager._tracked_clients == {"Client1", "Client2"}
+
+    @pytest.mark.asyncio
+    async def test_existing_client_not_duplicated(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test that existing clients don't get duplicate entities."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(mock_coordinator, async_add_entities)
+        await manager.async_setup()
+
+        # Reset the mock
+        async_add_entities.reset_mock()
+
+        # Trigger another check without changes
+        await manager._async_add_new_client_entities()
+
+        # Should not have added any entities
+        assert async_add_entities.call_count == 0
+
+    @pytest.mark.asyncio
+    async def test_no_clients_no_entities(self) -> None:
+        """Test that no clients results in no entities."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        coordinator = MagicMock()
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = []
+        coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(coordinator, async_add_entities)
+        await manager.async_setup()
+
+        # Should not have called async_add_entities
+        assert async_add_entities.call_count == 0
+
+    def test_unsubscribe(self, mock_coordinator: MagicMock) -> None:
+        """Test that unsubscribe removes the listener."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        unsubscribe_mock = MagicMock()
+        mock_coordinator.async_add_listener = MagicMock(return_value=unsubscribe_mock)
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(mock_coordinator, async_add_entities)
+        manager._unsubscribe = unsubscribe_mock
+
+        manager.async_unsubscribe()
+
+        unsubscribe_mock.assert_called_once()
+        assert manager._unsubscribe is None

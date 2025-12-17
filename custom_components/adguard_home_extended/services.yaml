@@ -9,6 +9,12 @@ set_blocked_services:
       example: '["facebook", "instagram", "tiktok"]'
       selector:
         object:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
 
 add_filter_url:
   name: Add Filter URL
@@ -35,6 +41,12 @@ add_filter_url:
       default: false
       selector:
         boolean:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
 
 remove_filter_url:
   name: Remove Filter URL
@@ -54,10 +66,23 @@ remove_filter_url:
       default: false
       selector:
         boolean:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
 
 refresh_filters:
   name: Refresh Filters
   description: Force refresh all filter lists in AdGuard Home. This downloads the latest versions of all enabled filter lists.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
 
 set_client_blocked_services:
   name: Set Client Blocked Services
@@ -77,6 +102,12 @@ set_client_blocked_services:
       example: '["tiktok", "youtube", "instagram"]'
       selector:
         object:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
 
 add_dns_rewrite:
   name: Add DNS Rewrite
@@ -96,6 +127,12 @@ add_dns_rewrite:
       example: "0.0.0.0"
       selector:
         text:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
 
 remove_dns_rewrite:
   name: Remove DNS Rewrite
@@ -113,5 +150,11 @@ remove_dns_rewrite:
       description: The answer (IP/domain) of the rewrite rule to remove.
       required: true
       example: "0.0.0.0"
+      selector:
+        text:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
       selector:
         text:

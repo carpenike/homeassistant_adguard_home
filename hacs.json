@@ -1,4 +1,9 @@
 {
   "name": "AdGuard Home Extended",
-  "homeassistant": "2024.1.0"
+  "homeassistant": "2024.1.0",
+  "render_readme": true,
+  "content_in_root": false,
+  "filename": "adguard_home_extended",
+  "country": ["ALL"],
+  "icon": "custom_components/adguard_home_extended/icon.png"
 }

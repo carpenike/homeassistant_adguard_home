@@ -32,6 +32,20 @@
       "reauth_successful": "Re-authentication successful"
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AdGuard Home Options",
+        "description": "Configure polling interval and other options.",
+        "data": {
+          "scan_interval": "Scan interval (seconds)"
+        },
+        "data_description": {
+          "scan_interval": "How often to poll the AdGuard Home API for updates (10-3600 seconds)."
+        }
+      }
+    }
+  },
   "entity": {
     "sensor": {
       "dns_queries": {
@@ -100,6 +114,126 @@
       },
       "dhcp_enabled": {
         "name": "DHCP Enabled"
+      }
+    }
+  },
+  "services": {
+    "set_blocked_services": {
+      "name": "Set Blocked Services",
+      "description": "Set the list of services to block globally in AdGuard Home.",
+      "fields": {
+        "services": {
+          "name": "Services",
+          "description": "List of service IDs to block (e.g., facebook, youtube, tiktok). Any services not in this list will be unblocked."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "add_filter_url": {
+      "name": "Add Filter URL",
+      "description": "Add a new filter list URL to AdGuard Home.",
+      "fields": {
+        "name": {
+          "name": "Name",
+          "description": "A friendly name for the filter list."
+        },
+        "url": {
+          "name": "URL",
+          "description": "The URL of the filter list."
+        },
+        "whitelist": {
+          "name": "Whitelist",
+          "description": "If true, adds this as a whitelist instead of a blocklist."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "remove_filter_url": {
+      "name": "Remove Filter URL",
+      "description": "Remove a filter list URL from AdGuard Home.",
+      "fields": {
+        "url": {
+          "name": "URL",
+          "description": "The URL of the filter list to remove."
+        },
+        "whitelist": {
+          "name": "Whitelist",
+          "description": "If true, removes from whitelists instead of blocklists."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "refresh_filters": {
+      "name": "Refresh Filters",
+      "description": "Force refresh all filter lists in AdGuard Home. This downloads the latest versions of all enabled filter lists.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "set_client_blocked_services": {
+      "name": "Set Client Blocked Services",
+      "description": "Set the list of services to block for a specific client. This automatically disables 'use global blocked services' for the client.",
+      "fields": {
+        "client_name": {
+          "name": "Client Name",
+          "description": "The name of the client to configure (must match a configured client in AdGuard Home)."
+        },
+        "services": {
+          "name": "Services",
+          "description": "List of service IDs to block for this client."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "add_dns_rewrite": {
+      "name": "Add DNS Rewrite",
+      "description": "Add a DNS rewrite rule to redirect a domain to a specific IP or another domain.",
+      "fields": {
+        "domain": {
+          "name": "Domain",
+          "description": "The domain name to rewrite (e.g., example.com or *.example.com for wildcard)."
+        },
+        "answer": {
+          "name": "Answer",
+          "description": "The IP address or domain name to redirect to."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "remove_dns_rewrite": {
+      "name": "Remove DNS Rewrite",
+      "description": "Remove an existing DNS rewrite rule.",
+      "fields": {
+        "domain": {
+          "name": "Domain",
+          "description": "The domain name of the rewrite rule to remove."
+        },
+        "answer": {
+          "name": "Answer",
+          "description": "The answer (IP/domain) of the rewrite rule to remove."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
       }
     }
   }

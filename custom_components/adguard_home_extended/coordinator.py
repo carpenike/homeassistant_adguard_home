@@ -1,30 +1,31 @@
 """DataUpdateCoordinator for AdGuard Home Extended."""
 from __future__ import annotations
 
-from datetime import timedelta
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
-from homeassistant.exceptions import ConfigEntryAuthFailed
 
 from .api.client import (
+    AdGuardHomeAuthError,
     AdGuardHomeClient,
     AdGuardHomeConnectionError,
-    AdGuardHomeAuthError,
 )
 from .api.models import (
-    AdGuardHomeStatus,
     AdGuardHomeStats,
-    FilteringStatus,
+    AdGuardHomeStatus,
     DhcpStatus,
     DnsRewrite,
+    FilteringStatus,
 )
-from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
+from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -60,27 +61,17 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
         entry: ConfigEntry,
     ) -> None:
         """Initialize the coordinator."""
+        # Get scan interval from options, falling back to default
+        scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
-            update_interval=timedelta(seconds=DEFAULT_SCAN_INTERVAL),
+            update_interval=timedelta(seconds=scan_interval),
         )
         self.client = client
         self.config_entry = entry
-
-    @property
-    def device_info(self) -> dict[str, Any]:
-        """Return device information for the AdGuard Home instance."""
-        return {
-            "identifiers": {(DOMAIN, self.config_entry.entry_id)},
-            "name": "AdGuard Home",
-            "manufacturer": "AdGuard",
-            "model": "AdGuard Home",
-            "sw_version": (
-                self.data.status.version if self.data and self.data.status else None
-            ),
-        }
 
     async def _async_update_data(self) -> AdGuardHomeData:
         """Fetch data from AdGuard Home."""

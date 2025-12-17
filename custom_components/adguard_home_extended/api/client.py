@@ -5,43 +5,46 @@ import logging
 from base64 import b64encode
 from typing import Any
 
-from aiohttp import ClientSession, ClientError, ClientResponseError
+from aiohttp import ClientError, ClientResponseError, ClientSession
 
-from .models import (
-    AdGuardHomeStatus,
-    AdGuardHomeStats,
-    FilteringStatus,
-    AdGuardHomeClient as ClientConfig,
-    BlockedService,
-    DnsRewrite,
-    DhcpStatus,
-)
 from ..const import (
-    API_STATUS,
-    API_STATS,
-    API_QUERYLOG,
-    API_PROTECTION,
-    API_SAFEBROWSING_ENABLE,
-    API_SAFEBROWSING_DISABLE,
-    API_PARENTAL_ENABLE,
-    API_PARENTAL_DISABLE,
-    API_SAFESEARCH_ENABLE,
-    API_SAFESEARCH_DISABLE,
-    API_FILTERING_STATUS,
-    API_FILTERING_ADD_URL,
-    API_FILTERING_REMOVE_URL,
-    API_FILTERING_REFRESH,
-    API_CLIENTS,
-    API_CLIENTS_ADD,
-    API_CLIENTS_UPDATE,
-    API_CLIENTS_DELETE,
     API_BLOCKED_SERVICES_ALL,
     API_BLOCKED_SERVICES_LIST,
     API_BLOCKED_SERVICES_SET,
-    API_REWRITE_LIST,
+    API_CLIENTS,
+    API_CLIENTS_ADD,
+    API_CLIENTS_DELETE,
+    API_CLIENTS_UPDATE,
+    API_DHCP_STATUS,
+    API_FILTERING_ADD_URL,
+    API_FILTERING_CONFIG,
+    API_FILTERING_REFRESH,
+    API_FILTERING_REMOVE_URL,
+    API_FILTERING_STATUS,
+    API_PARENTAL_DISABLE,
+    API_PARENTAL_ENABLE,
+    API_PROTECTION,
+    API_QUERYLOG,
     API_REWRITE_ADD,
     API_REWRITE_DELETE,
-    API_DHCP_STATUS,
+    API_REWRITE_LIST,
+    API_SAFEBROWSING_DISABLE,
+    API_SAFEBROWSING_ENABLE,
+    API_SAFESEARCH_DISABLE,
+    API_SAFESEARCH_ENABLE,
+    API_STATS,
+    API_STATUS,
+)
+from .models import (
+    AdGuardHomeClient as ClientConfig,
+)
+from .models import (
+    AdGuardHomeStats,
+    AdGuardHomeStatus,
+    BlockedService,
+    DhcpStatus,
+    DnsRewrite,
+    FilteringStatus,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -175,6 +178,17 @@ class AdGuardHomeClient:
         data = await self._get(API_FILTERING_STATUS)
         return FilteringStatus.from_dict(data)
 
+    async def set_filtering(self, enabled: bool, interval: int = 24) -> None:
+        """Enable or disable filtering.
+
+        Args:
+            enabled: Whether filtering should be enabled.
+            interval: Filter update check interval in hours (default 24).
+        """
+        await self._post(
+            API_FILTERING_CONFIG, {"enabled": enabled, "interval": interval}
+        )
+
     async def add_filter_url(
         self, name: str, url: str, whitelist: bool = False
     ) -> None:
@@ -204,24 +218,9 @@ class AdGuardHomeClient:
 
     async def add_client(self, client: ClientConfig) -> None:
         """Add a client."""
-        await self._post(API_CLIENTS_ADD, {
-            "name": client.name,
-            "ids": client.ids,
-            "use_global_settings": client.use_global_settings,
-            "filtering_enabled": client.filtering_enabled,
-            "parental_enabled": client.parental_enabled,
-            "safebrowsing_enabled": client.safebrowsing_enabled,
-            "safesearch_enabled": client.safesearch_enabled,
-            "use_global_blocked_services": client.use_global_blocked_services,
-            "blocked_services": client.blocked_services,
-            "tags": client.tags,
-        })
-
-    async def update_client(self, name: str, client: ClientConfig) -> None:
-        """Update a client."""
-        await self._post(API_CLIENTS_UPDATE, {
-            "name": name,
-            "data": {
+        await self._post(
+            API_CLIENTS_ADD,
+            {
                 "name": client.name,
                 "ids": client.ids,
                 "use_global_settings": client.use_global_settings,
@@ -233,7 +232,28 @@ class AdGuardHomeClient:
                 "blocked_services": client.blocked_services,
                 "tags": client.tags,
             },
-        })
+        )
+
+    async def update_client(self, name: str, client: ClientConfig) -> None:
+        """Update a client."""
+        await self._post(
+            API_CLIENTS_UPDATE,
+            {
+                "name": name,
+                "data": {
+                    "name": client.name,
+                    "ids": client.ids,
+                    "use_global_settings": client.use_global_settings,
+                    "filtering_enabled": client.filtering_enabled,
+                    "parental_enabled": client.parental_enabled,
+                    "safebrowsing_enabled": client.safebrowsing_enabled,
+                    "safesearch_enabled": client.safesearch_enabled,
+                    "use_global_blocked_services": client.use_global_blocked_services,
+                    "blocked_services": client.blocked_services,
+                    "tags": client.tags,
+                },
+            },
+        )
 
     async def delete_client(self, name: str) -> None:
         """Delete a client."""
@@ -247,13 +267,23 @@ class AdGuardHomeClient:
         return [BlockedService.from_dict(svc) for svc in services]
 
     async def get_blocked_services(self) -> list[str]:
-        """Get currently blocked services."""
+        """Get currently blocked services.
+
+        Handles both old (list) and new (object with ids) API formats.
+        """
         data = await self._get(API_BLOCKED_SERVICES_LIST)
+        # New format returns {"ids": [...], "schedule": {...}}
+        if isinstance(data, dict):
+            return data.get("ids", [])
+        # Old format returns just a list
         return data if isinstance(data, list) else []
 
     async def set_blocked_services(self, services: list[str]) -> None:
-        """Set blocked services."""
-        await self._post(API_BLOCKED_SERVICES_SET, services)
+        """Set blocked services.
+
+        Uses the new API format (v0.107.37+) with {"ids": [...]}.
+        """
+        await self._post(API_BLOCKED_SERVICES_SET, {"ids": services})
 
     # DNS rewrites
     async def get_rewrites(self) -> list[DnsRewrite]:

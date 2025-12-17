@@ -12,13 +12,13 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfTime
+from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-from .coordinator import AdGuardHomeDataUpdateCoordinator, AdGuardHomeData
+from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -50,9 +50,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         native_unit_of_measurement=PERCENTAGE,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda data: (
-            round(
-                (data.stats.blocked_filtering / data.stats.dns_queries) * 100, 1
-            )
+            round((data.stats.blocked_filtering / data.stats.dns_queries) * 100, 1)
             if data.stats and data.stats.dns_queries > 0
             else 0
         ),
@@ -63,10 +61,9 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         native_unit_of_measurement=UnitOfTime.MILLISECONDS,
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: (
-            round(data.stats.avg_processing_time * 1000, 2)
-            if data.stats
-            else None
+            round(data.stats.avg_processing_time * 1000, 2) if data.stats else None
         ),
     ),
     AdGuardHomeSensorEntityDescription(
@@ -94,9 +91,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
             else None
         ),
         attributes_fn=lambda data: (
-            {
-                "top_blocked_domains": data.stats.top_blocked_domains[:10]
-            }
+            {"top_blocked_domains": data.stats.top_blocked_domains[:10]}
             if data.stats
             else {}
         ),
@@ -119,12 +114,12 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="dns_rewrites_count",
         native_unit_of_measurement="rules",
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.rewrites) if data.rewrites else 0,
         attributes_fn=lambda data: (
             {
                 "rewrites": [
-                    {"domain": r.domain, "answer": r.answer}
-                    for r in data.rewrites[:20]
+                    {"domain": r.domain, "answer": r.answer} for r in data.rewrites[:20]
                 ]
             }
             if data.rewrites
@@ -137,6 +132,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="dhcp_leases_count",
         native_unit_of_measurement="leases",
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.dhcp.leases) if data.dhcp else 0,
         attributes_fn=lambda data: (
             {
@@ -159,6 +155,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="dhcp_static_leases_count",
         native_unit_of_measurement="leases",
         state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.dhcp.static_leases) if data.dhcp else 0,
         attributes_fn=lambda data: (
             {
@@ -179,15 +176,19 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
     AdGuardHomeSensorEntityDescription(
         key="recent_queries",
         translation_key="recent_queries",
+        entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.query_log) if data.query_log else 0,
         attributes_fn=lambda data: (
             {
                 "recent_queries": [
                     {
-                        "domain": q.get("QH", ""),
-                        "client": q.get("IP", ""),
-                        "answer": q.get("Answer", ""),
-                        "reason": q.get("Reason", ""),
+                        "domain": q.get("question", {}).get("name", "")
+                        if isinstance(q.get("question"), dict)
+                        else q.get("QH", ""),  # Fallback for older API format
+                        "client": q.get("client", q.get("IP", "")),
+                        "answer": q.get("answer", []),
+                        "reason": q.get("reason", q.get("Reason", "")),
+                        "time": q.get("time", ""),
                     }
                     for q in data.query_log[:10]
                 ]

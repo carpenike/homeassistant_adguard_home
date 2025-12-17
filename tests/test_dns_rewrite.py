@@ -1,8 +1,6 @@
 """Tests for DNS rewrite and query log features."""
 from __future__ import annotations
 
-import pytest
-
 from custom_components.adguard_home_extended.api.models import DnsRewrite
 from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
 from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
@@ -68,8 +66,8 @@ class TestDhcpSensors:
     def test_dhcp_leases_count(self) -> None:
         """Test DHCP leases count."""
         from custom_components.adguard_home_extended.api.models import (
-            DhcpStatus,
             DhcpLease,
+            DhcpStatus,
         )
 
         data = AdGuardHomeData()
@@ -77,8 +75,18 @@ class TestDhcpSensors:
             enabled=True,
             interface_name="eth0",
             leases=[
-                DhcpLease(mac="aa:bb:cc:dd:ee:ff", ip="192.168.1.10", hostname="device1", expires="2024-01-01"),
-                DhcpLease(mac="11:22:33:44:55:66", ip="192.168.1.11", hostname="device2", expires="2024-01-02"),
+                DhcpLease(
+                    mac="aa:bb:cc:dd:ee:ff",
+                    ip="192.168.1.10",
+                    hostname="device1",
+                    expires="2024-01-01",
+                ),
+                DhcpLease(
+                    mac="11:22:33:44:55:66",
+                    ip="192.168.1.11",
+                    hostname="device2",
+                    expires="2024-01-02",
+                ),
             ],
             static_leases=[],
         )
@@ -89,8 +97,8 @@ class TestDhcpSensors:
     def test_dhcp_static_leases_count(self) -> None:
         """Test DHCP static leases count."""
         from custom_components.adguard_home_extended.api.models import (
-            DhcpStatus,
             DhcpLease,
+            DhcpStatus,
         )
 
         data = AdGuardHomeData()
@@ -99,7 +107,12 @@ class TestDhcpSensors:
             interface_name="eth0",
             leases=[],
             static_leases=[
-                DhcpLease(mac="aa:bb:cc:dd:ee:ff", ip="192.168.1.50", hostname="server", expires=""),
+                DhcpLease(
+                    mac="aa:bb:cc:dd:ee:ff",
+                    ip="192.168.1.50",
+                    hostname="server",
+                    expires="",
+                ),
             ],
         )
 
@@ -111,7 +124,9 @@ class TestDhcpSensors:
         data = AdGuardHomeData()
 
         leases_sensor = next(s for s in SENSOR_TYPES if s.key == "dhcp_leases_count")
-        static_sensor = next(s for s in SENSOR_TYPES if s.key == "dhcp_static_leases_count")
+        static_sensor = next(
+            s for s in SENSOR_TYPES if s.key == "dhcp_static_leases_count"
+        )
 
         assert leases_sensor.value_fn(data) == 0
         assert static_sensor.value_fn(data) == 0
@@ -129,9 +144,21 @@ class TestQueryLogSensor:
         """Test recent queries count."""
         data = AdGuardHomeData()
         data.query_log = [
-            {"QH": "example.com", "IP": "192.168.1.10", "Reason": ""},
-            {"QH": "google.com", "IP": "192.168.1.11", "Reason": ""},
-            {"QH": "blocked.com", "IP": "192.168.1.10", "Reason": "FilteredBlackList"},
+            {
+                "question": {"name": "example.com"},
+                "client": "192.168.1.10",
+                "reason": "",
+            },
+            {
+                "question": {"name": "google.com"},
+                "client": "192.168.1.11",
+                "reason": "",
+            },
+            {
+                "question": {"name": "blocked.com"},
+                "client": "192.168.1.10",
+                "reason": "FilteredBlackList",
+            },
         ]
 
         sensor = next(s for s in SENSOR_TYPES if s.key == "recent_queries")
@@ -145,10 +172,37 @@ class TestQueryLogSensor:
         assert sensor.value_fn(data) == 0
 
     def test_recent_queries_attributes(self) -> None:
-        """Test recent queries attributes."""
+        """Test recent queries attributes with new API format."""
         data = AdGuardHomeData()
         data.query_log = [
-            {"QH": "example.com", "IP": "192.168.1.10", "Reason": "", "Answer": "93.184.216.34"},
+            {
+                "question": {"name": "example.com"},
+                "client": "192.168.1.10",
+                "reason": "",
+                "answer": [{"value": "93.184.216.34"}],
+                "time": "2024-01-01T12:00:00Z",
+            },
+        ]
+
+        sensor = next(s for s in SENSOR_TYPES if s.key == "recent_queries")
+        attrs = sensor.attributes_fn(data)
+
+        assert "recent_queries" in attrs
+        assert len(attrs["recent_queries"]) == 1
+        assert attrs["recent_queries"][0]["domain"] == "example.com"
+        assert attrs["recent_queries"][0]["client"] == "192.168.1.10"
+        assert attrs["recent_queries"][0]["time"] == "2024-01-01T12:00:00Z"
+
+    def test_recent_queries_attributes_legacy_format(self) -> None:
+        """Test recent queries attributes with legacy API format."""
+        data = AdGuardHomeData()
+        data.query_log = [
+            {
+                "QH": "example.com",
+                "IP": "192.168.1.10",
+                "Reason": "",
+                "Answer": "93.184.216.34",
+            },
         ]
 
         sensor = next(s for s in SENSOR_TYPES if s.key == "recent_queries")

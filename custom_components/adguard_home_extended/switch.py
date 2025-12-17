@@ -7,13 +7,13 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
-from .coordinator import AdGuardHomeDataUpdateCoordinator, AdGuardHomeData
 from .api.client import AdGuardHomeClient
+from .const import DOMAIN
+from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -29,9 +29,7 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
     AdGuardHomeSwitchEntityDescription(
         key="protection",
         translation_key="protection",
-        is_on_fn=lambda data: (
-            data.status.protection_enabled if data.status else None
-        ),
+        is_on_fn=lambda data: (data.status.protection_enabled if data.status else None),
         turn_on_fn=lambda client: client.set_protection(True),
         turn_off_fn=lambda client: client.set_protection(False),
     ),
@@ -39,33 +37,29 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
         key="filtering",
         translation_key="filtering",
         is_on_fn=lambda data: data.filtering.enabled if data.filtering else None,
-        turn_on_fn=lambda client: client.set_protection(True),  # Filtering is tied to protection
-        turn_off_fn=lambda client: client.set_protection(False),
+        turn_on_fn=lambda client: client.set_filtering(True),
+        turn_off_fn=lambda client: client.set_filtering(False),
     ),
     AdGuardHomeSwitchEntityDescription(
         key="safe_browsing",
         translation_key="safe_browsing",
         is_on_fn=lambda data: (
-            data.status.protection_enabled if data.status else None
-        ),  # Will be updated when we can read safebrowsing state
+            data.status.safebrowsing_enabled if data.status else None
+        ),
         turn_on_fn=lambda client: client.set_safebrowsing(True),
         turn_off_fn=lambda client: client.set_safebrowsing(False),
     ),
     AdGuardHomeSwitchEntityDescription(
         key="parental_control",
         translation_key="parental_control",
-        is_on_fn=lambda data: (
-            data.status.protection_enabled if data.status else None
-        ),  # Will be updated when we can read parental state
+        is_on_fn=lambda data: (data.status.parental_enabled if data.status else None),
         turn_on_fn=lambda client: client.set_parental(True),
         turn_off_fn=lambda client: client.set_parental(False),
     ),
     AdGuardHomeSwitchEntityDescription(
         key="safe_search",
         translation_key="safe_search",
-        is_on_fn=lambda data: (
-            data.status.protection_enabled if data.status else None
-        ),  # Will be updated when we can read safesearch state
+        is_on_fn=lambda data: (data.status.safesearch_enabled if data.status else None),
         turn_on_fn=lambda client: client.set_safesearch(True),
         turn_off_fn=lambda client: client.set_safesearch(False),
     ),
@@ -80,16 +74,110 @@ async def async_setup_entry(
     """Set up AdGuard Home switches based on a config entry."""
     coordinator: AdGuardHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
 
+    # Add global switches
     entities: list[SwitchEntity] = [
         AdGuardHomeSwitch(coordinator, description) for description in SWITCH_TYPES
     ]
-
-    # Add per-client switches
-    from .client_entities import create_client_entities
-    client_entities = await create_client_entities(hass, entry, coordinator)
-    entities.extend(client_entities)
-
     async_add_entities(entities)
+
+    # Set up dynamic client entity manager
+    client_manager = ClientEntityManager(coordinator, async_add_entities)
+    await client_manager.async_setup()
+
+    # Store manager reference for cleanup
+    if DOMAIN not in hass.data:
+        hass.data[DOMAIN] = {}
+    if "client_managers" not in hass.data[DOMAIN]:
+        hass.data[DOMAIN]["client_managers"] = {}
+    hass.data[DOMAIN]["client_managers"][entry.entry_id] = client_manager
+
+
+class ClientEntityManager:
+    """Manage dynamic client entities."""
+
+    def __init__(
+        self,
+        coordinator: AdGuardHomeDataUpdateCoordinator,
+        async_add_entities: AddEntitiesCallback,
+    ) -> None:
+        """Initialize the client entity manager."""
+        self._coordinator = coordinator
+        self._async_add_entities = async_add_entities
+        self._tracked_clients: set[str] = set()
+        self._unsubscribe: Callable[[], None] | None = None
+
+    async def async_setup(self) -> None:
+        """Set up the client entity manager."""
+        # Create initial entities for existing clients
+        await self._async_add_new_client_entities()
+
+        # Subscribe to coordinator updates
+        self._unsubscribe = self._coordinator.async_add_listener(
+            self._handle_coordinator_update
+        )
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle coordinator data updates."""
+        # Schedule the async entity check
+        self._coordinator.hass.async_create_task(self._async_add_new_client_entities())
+
+    async def _async_add_new_client_entities(self) -> None:
+        """Add entities for any new clients."""
+        if self._coordinator.data is None or not self._coordinator.data.clients:
+            return
+
+        from .api.models import AdGuardHomeClient as ClientConfig
+        from .client_entities import (
+            AdGuardClientFilteringSwitch,
+            AdGuardClientParentalSwitch,
+            AdGuardClientSafeBrowsingSwitch,
+            AdGuardClientSafeSearchSwitch,
+            AdGuardClientUseGlobalBlockedServicesSwitch,
+            AdGuardClientUseGlobalSettingsSwitch,
+        )
+
+        new_entities: list[SwitchEntity] = []
+        current_clients: set[str] = set()
+
+        for client_data in self._coordinator.data.clients:
+            client = ClientConfig.from_dict(client_data)
+            current_clients.add(client.name)
+
+            # Skip if we already have entities for this client
+            if client.name in self._tracked_clients:
+                continue
+
+            # Create all entity types for the new client
+            new_entities.extend(
+                [
+                    AdGuardClientFilteringSwitch(self._coordinator, client.name),
+                    AdGuardClientParentalSwitch(self._coordinator, client.name),
+                    AdGuardClientSafeBrowsingSwitch(self._coordinator, client.name),
+                    AdGuardClientSafeSearchSwitch(self._coordinator, client.name),
+                    AdGuardClientUseGlobalSettingsSwitch(
+                        self._coordinator, client.name
+                    ),
+                    AdGuardClientUseGlobalBlockedServicesSwitch(
+                        self._coordinator, client.name
+                    ),
+                ]
+            )
+
+            self._tracked_clients.add(client.name)
+
+        # Add new entities if any
+        if new_entities:
+            self._async_add_entities(new_entities)
+
+        # Note: Removed clients will have their entities become unavailable
+        # (handled by available property checking _get_client_data())
+
+    def async_unsubscribe(self) -> None:
+        """Unsubscribe from coordinator updates."""
+        if self._unsubscribe:
+            self._unsubscribe()
+            self._unsubscribe = None
 
 
 class AdGuardHomeSwitch(
