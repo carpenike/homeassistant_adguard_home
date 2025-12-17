@@ -56,7 +56,7 @@ This integration provides features not available in the official AdGuard Home in
 
 1. Open HACS in Home Assistant
 2. Click the three dots menu → **Custom repositories**
-3. Add this repository URL: `https://github.com/your-username/homeassistant_adguard_home`
+3. Add this repository URL: `https://github.com/carpenike/homeassistant_adguard_home`
 4. Select **Integration** as the category
 5. Click **Add**
 6. Search for "AdGuard Home Extended" and install

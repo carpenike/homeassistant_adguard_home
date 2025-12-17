@@ -1,12 +1,12 @@
 {
   "domain": "adguard_home_extended",
   "name": "AdGuard Home Extended",
-  "codeowners": [],
+  "codeowners": ["@carpenike"],
   "config_flow": true,
   "dependencies": [],
-  "documentation": "https://github.com/your-username/homeassistant_adguard_home",
+  "documentation": "https://github.com/carpenike/homeassistant_adguard_home",
   "iot_class": "local_polling",
-  "issue_tracker": "https://github.com/your-username/homeassistant_adguard_home/issues",
+  "issue_tracker": "https://github.com/carpenike/homeassistant_adguard_home/issues",
   "requirements": [],
   "version": "0.1.0",
   "integration_type": "hub"
