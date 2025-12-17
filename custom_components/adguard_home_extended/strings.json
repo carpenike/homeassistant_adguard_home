@@ -1,0 +1,91 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to AdGuard Home",
+        "description": "Enter the connection details for your AdGuard Home instance.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "ssl": "Use SSL",
+          "verify_ssl": "Verify SSL certificate"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate AdGuard Home",
+        "description": "Please enter updated credentials for your AdGuard Home instance.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to AdGuard Home",
+      "invalid_auth": "Invalid authentication credentials",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This AdGuard Home instance is already configured",
+      "reauth_successful": "Re-authentication successful"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "dns_queries": {
+        "name": "DNS Queries"
+      },
+      "blocked_queries": {
+        "name": "Blocked Queries"
+      },
+      "blocked_percentage": {
+        "name": "Blocked Percentage"
+      },
+      "avg_processing_time": {
+        "name": "Average Processing Time"
+      },
+      "safe_browsing_blocked": {
+        "name": "Safe Browsing Blocked"
+      },
+      "parental_blocked": {
+        "name": "Parental Control Blocked"
+      },
+      "top_blocked_domain": {
+        "name": "Top Blocked Domain"
+      },
+      "top_client": {
+        "name": "Top Client"
+      }
+    },
+    "switch": {
+      "protection": {
+        "name": "Protection"
+      },
+      "filtering": {
+        "name": "Filtering"
+      },
+      "safe_browsing": {
+        "name": "Safe Browsing"
+      },
+      "parental_control": {
+        "name": "Parental Control"
+      },
+      "safe_search": {
+        "name": "Safe Search"
+      }
+    },
+    "binary_sensor": {
+      "running": {
+        "name": "Running"
+      },
+      "protection_enabled": {
+        "name": "Protection Enabled"
+      },
+      "dhcp_enabled": {
+        "name": "DHCP Enabled"
+      }
+    }
+  }
+}
