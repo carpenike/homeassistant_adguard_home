@@ -10,6 +10,14 @@ DEFAULT_PORT: Final = 3000
 DEFAULT_SSL: Final = False
 DEFAULT_VERIFY_SSL: Final = True
 DEFAULT_SCAN_INTERVAL: Final = 30
+DEFAULT_QUERY_LOG_LIMIT: Final = 100
+DEFAULT_ATTR_TOP_ITEMS_LIMIT: Final = 10
+DEFAULT_ATTR_LIST_LIMIT: Final = 20
+
+# Configuration keys
+CONF_QUERY_LOG_LIMIT: Final = "query_log_limit"
+CONF_ATTR_TOP_ITEMS_LIMIT: Final = "attr_top_items_limit"
+CONF_ATTR_LIST_LIMIT: Final = "attr_list_limit"
 
 # API endpoints
 API_STATUS: Final = "/control/status"

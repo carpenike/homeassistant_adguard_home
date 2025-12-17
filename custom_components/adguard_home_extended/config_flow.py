@@ -25,7 +25,13 @@ from .api.client import (
     AdGuardHomeConnectionError,
 )
 from .const import (
+    CONF_ATTR_LIST_LIMIT,
+    CONF_ATTR_TOP_ITEMS_LIMIT,
+    CONF_QUERY_LOG_LIMIT,
+    DEFAULT_ATTR_LIST_LIMIT,
+    DEFAULT_ATTR_TOP_ITEMS_LIMIT,
     DEFAULT_PORT,
+    DEFAULT_QUERY_LOG_LIMIT,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_SSL,
     DEFAULT_VERIFY_SSL,
@@ -182,9 +188,18 @@ class AdGuardHomeOptionsFlow(OptionsFlow):
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
-        # Get current scan interval from options, falling back to default
+        # Get current values from options, falling back to defaults
         current_scan_interval = self.config_entry.options.get(
             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+        )
+        current_query_log_limit = self.config_entry.options.get(
+            CONF_QUERY_LOG_LIMIT, DEFAULT_QUERY_LOG_LIMIT
+        )
+        current_attr_top_items_limit = self.config_entry.options.get(
+            CONF_ATTR_TOP_ITEMS_LIMIT, DEFAULT_ATTR_TOP_ITEMS_LIMIT
+        )
+        current_attr_list_limit = self.config_entry.options.get(
+            CONF_ATTR_LIST_LIMIT, DEFAULT_ATTR_LIST_LIMIT
         )
 
         return self.async_show_form(
@@ -195,6 +210,18 @@ class AdGuardHomeOptionsFlow(OptionsFlow):
                         CONF_SCAN_INTERVAL,
                         default=current_scan_interval,
                     ): vol.All(vol.Coerce(int), vol.Range(min=10, max=3600)),
+                    vol.Required(
+                        CONF_QUERY_LOG_LIMIT,
+                        default=current_query_log_limit,
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=10000)),
+                    vol.Required(
+                        CONF_ATTR_TOP_ITEMS_LIMIT,
+                        default=current_attr_top_items_limit,
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+                    vol.Required(
+                        CONF_ATTR_LIST_LIMIT,
+                        default=current_attr_list_limit,
+                    ): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
                 }
             ),
         )

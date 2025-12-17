@@ -13,7 +13,15 @@ from custom_components.adguard_home_extended.config_flow import (
     AdGuardHomeConfigFlow,
     AdGuardHomeOptionsFlow,
 )
-from custom_components.adguard_home_extended.const import DEFAULT_SCAN_INTERVAL
+from custom_components.adguard_home_extended.const import (
+    CONF_ATTR_LIST_LIMIT,
+    CONF_ATTR_TOP_ITEMS_LIMIT,
+    CONF_QUERY_LOG_LIMIT,
+    DEFAULT_ATTR_LIST_LIMIT,
+    DEFAULT_ATTR_TOP_ITEMS_LIMIT,
+    DEFAULT_QUERY_LOG_LIMIT,
+    DEFAULT_SCAN_INTERVAL,
+)
 
 
 class TestConfigFlow:
@@ -261,10 +269,83 @@ class TestOptionsFlow:
         flow = AdGuardHomeOptionsFlow(mock_entry)
         flow.hass = hass
 
-        result = await flow.async_step_init(user_input={CONF_SCAN_INTERVAL: 120})
+        result = await flow.async_step_init(
+            user_input={
+                CONF_SCAN_INTERVAL: 120,
+                CONF_QUERY_LOG_LIMIT: 200,
+                CONF_ATTR_TOP_ITEMS_LIMIT: 15,
+                CONF_ATTR_LIST_LIMIT: 25,
+            }
+        )
 
         assert result["type"] == FlowResultType.CREATE_ENTRY
-        assert result["data"] == {CONF_SCAN_INTERVAL: 120}
+        assert result["data"] == {
+            CONF_SCAN_INTERVAL: 120,
+            CONF_QUERY_LOG_LIMIT: 200,
+            CONF_ATTR_TOP_ITEMS_LIMIT: 15,
+            CONF_ATTR_LIST_LIMIT: 25,
+        }
+
+    @pytest.mark.asyncio
+    async def test_options_flow_query_log_limit_default(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Test options flow shows default query log limit."""
+        mock_entry = MagicMock()
+        mock_entry.options = {}  # No options set, should use defaults
+
+        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow.hass = hass
+
+        result = await flow.async_step_init()
+
+        assert result["type"] == FlowResultType.FORM
+        # Check that the schema has the query_log_limit field with correct default
+        schema = result["data_schema"].schema
+        query_log_key = next(k for k in schema if k.schema == CONF_QUERY_LOG_LIMIT)
+        assert query_log_key.default() == DEFAULT_QUERY_LOG_LIMIT
+
+    @pytest.mark.asyncio
+    async def test_options_flow_attr_limits_default(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Test options flow shows default attribute limits."""
+        mock_entry = MagicMock()
+        mock_entry.options = {}  # No options set, should use defaults
+
+        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow.hass = hass
+
+        result = await flow.async_step_init()
+
+        assert result["type"] == FlowResultType.FORM
+        schema = result["data_schema"].schema
+
+        # Check top items limit default
+        top_items_key = next(k for k in schema if k.schema == CONF_ATTR_TOP_ITEMS_LIMIT)
+        assert top_items_key.default() == DEFAULT_ATTR_TOP_ITEMS_LIMIT
+
+        # Check list limit default
+        list_limit_key = next(k for k in schema if k.schema == CONF_ATTR_LIST_LIMIT)
+        assert list_limit_key.default() == DEFAULT_ATTR_LIST_LIMIT
+
+    @pytest.mark.asyncio
+    async def test_options_flow_preserves_existing_query_log_limit(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Test options flow preserves existing query log limit value."""
+        mock_entry = MagicMock()
+        mock_entry.options = {CONF_SCAN_INTERVAL: 60, CONF_QUERY_LOG_LIMIT: 500}
+
+        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow.hass = hass
+
+        result = await flow.async_step_init()
+
+        assert result["type"] == FlowResultType.FORM
+        schema = result["data_schema"].schema
+        query_log_key = next(k for k in schema if k.schema == CONF_QUERY_LOG_LIMIT)
+        assert query_log_key.default() == 500
 
     def test_config_flow_has_options_flow_handler(self) -> None:
         """Test that config flow has options flow handler."""

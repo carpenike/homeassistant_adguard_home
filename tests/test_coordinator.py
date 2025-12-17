@@ -17,7 +17,11 @@ from custom_components.adguard_home_extended.api.models import (
     AdGuardHomeStats,
     AdGuardHomeStatus,
 )
-from custom_components.adguard_home_extended.const import DEFAULT_SCAN_INTERVAL
+from custom_components.adguard_home_extended.const import (
+    CONF_QUERY_LOG_LIMIT,
+    DEFAULT_QUERY_LOG_LIMIT,
+    DEFAULT_SCAN_INTERVAL,
+)
 from custom_components.adguard_home_extended.coordinator import (
     AdGuardHomeData,
     AdGuardHomeDataUpdateCoordinator,
@@ -191,3 +195,33 @@ class TestAdGuardHomeDataUpdateCoordinator:
         assert "AdGuard Home" in device_info["name"]
         assert device_info["manufacturer"] == "AdGuard"
         assert device_info["sw_version"] == "0.107.43"
+
+    @pytest.mark.asyncio
+    async def test_query_log_limit_default(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test coordinator uses default query log limit when no options set."""
+        mock_entry.options = {}
+        mock_client.get_query_log = AsyncMock(return_value=[])
+        mock_client.get_rewrites = AsyncMock(return_value=[])
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        await coordinator._async_update_data()
+
+        # Should be called with default limit
+        mock_client.get_query_log.assert_called_once_with(limit=DEFAULT_QUERY_LOG_LIMIT)
+
+    @pytest.mark.asyncio
+    async def test_query_log_limit_from_options(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test coordinator uses query log limit from options."""
+        mock_entry.options = {CONF_QUERY_LOG_LIMIT: 500}
+        mock_client.get_query_log = AsyncMock(return_value=[])
+        mock_client.get_rewrites = AsyncMock(return_value=[])
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        await coordinator._async_update_data()
+
+        # Should be called with custom limit
+        mock_client.get_query_log.assert_called_once_with(limit=500)

@@ -17,7 +17,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import (
+    CONF_ATTR_LIST_LIMIT,
+    CONF_ATTR_TOP_ITEMS_LIMIT,
+    DEFAULT_ATTR_LIST_LIMIT,
+    DEFAULT_ATTR_TOP_ITEMS_LIMIT,
+    DOMAIN,
+)
 from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 
 
@@ -26,7 +32,7 @@ class AdGuardHomeSensorEntityDescription(SensorEntityDescription):
     """Describes AdGuard Home sensor entity."""
 
     value_fn: Callable[[AdGuardHomeData], Any]
-    attributes_fn: Callable[[AdGuardHomeData], dict[str, Any]] | None = None
+    attributes_fn: Callable[[AdGuardHomeData, int, int], dict[str, Any]] | None = None
 
 
 SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
@@ -90,8 +96,8 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
             if data.stats and data.stats.top_blocked_domains
             else None
         ),
-        attributes_fn=lambda data: (
-            {"top_blocked_domains": data.stats.top_blocked_domains[:10]}
+        attributes_fn=lambda data, top_limit, list_limit: (
+            {"top_blocked_domains": data.stats.top_blocked_domains[:top_limit]}
             if data.stats
             else {}
         ),
@@ -104,8 +110,8 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
             if data.stats and data.stats.top_clients
             else None
         ),
-        attributes_fn=lambda data: (
-            {"top_clients": data.stats.top_clients[:10]} if data.stats else {}
+        attributes_fn=lambda data, top_limit, list_limit: (
+            {"top_clients": data.stats.top_clients[:top_limit]} if data.stats else {}
         ),
     ),
     # DNS Rewrites sensor
@@ -116,10 +122,11 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.rewrites) if data.rewrites else 0,
-        attributes_fn=lambda data: (
+        attributes_fn=lambda data, top_limit, list_limit: (
             {
                 "rewrites": [
-                    {"domain": r.domain, "answer": r.answer} for r in data.rewrites[:20]
+                    {"domain": r.domain, "answer": r.answer}
+                    for r in data.rewrites[:list_limit]
                 ]
             }
             if data.rewrites
@@ -134,7 +141,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.dhcp.leases) if data.dhcp else 0,
-        attributes_fn=lambda data: (
+        attributes_fn=lambda data, top_limit, list_limit: (
             {
                 "leases": [
                     {
@@ -143,7 +150,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
                         "hostname": lease.hostname,
                         "expires": lease.expires,
                     }
-                    for lease in data.dhcp.leases[:20]
+                    for lease in data.dhcp.leases[:list_limit]
                 ]
             }
             if data.dhcp
@@ -157,7 +164,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.dhcp.static_leases) if data.dhcp else 0,
-        attributes_fn=lambda data: (
+        attributes_fn=lambda data, top_limit, list_limit: (
             {
                 "static_leases": [
                     {
@@ -165,7 +172,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
                         "ip": lease.ip,
                         "hostname": lease.hostname,
                     }
-                    for lease in data.dhcp.static_leases[:20]
+                    for lease in data.dhcp.static_leases[:list_limit]
                 ]
             }
             if data.dhcp
@@ -178,7 +185,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="recent_queries",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.query_log) if data.query_log else 0,
-        attributes_fn=lambda data: (
+        attributes_fn=lambda data, top_limit, list_limit: (
             {
                 "recent_queries": [
                     {
@@ -190,7 +197,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
                         "reason": q.get("reason", q.get("Reason", "")),
                         "time": q.get("time", ""),
                     }
-                    for q in data.query_log[:10]
+                    for q in data.query_log[:top_limit]
                 ]
             }
             if data.query_log
@@ -241,5 +248,13 @@ class AdGuardHomeSensor(
     def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return additional state attributes."""
         if self.entity_description.attributes_fn:
-            return self.entity_description.attributes_fn(self.coordinator.data)
+            # Get attribute limits from options
+            options = self.coordinator.config_entry.options
+            top_limit = options.get(
+                CONF_ATTR_TOP_ITEMS_LIMIT, DEFAULT_ATTR_TOP_ITEMS_LIMIT
+            )
+            list_limit = options.get(CONF_ATTR_LIST_LIMIT, DEFAULT_ATTR_LIST_LIMIT)
+            return self.entity_description.attributes_fn(
+                self.coordinator.data, top_limit, list_limit
+            )
         return None

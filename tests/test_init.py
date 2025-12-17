@@ -149,3 +149,46 @@ class TestAsyncUnloadEntry:
         assert result is False
         # Entry should still be in data since unload failed
         assert mock_entry.entry_id in mock_hass.data[DOMAIN]
+
+
+class TestAsyncMigrateEntry:
+    """Tests for async_migrate_entry."""
+
+    @pytest.fixture
+    def mock_hass(self) -> MagicMock:
+        """Return a mock Home Assistant instance."""
+        return MagicMock(spec=HomeAssistant)
+
+    @pytest.fixture
+    def mock_entry(self) -> MagicMock:
+        """Return a mock config entry."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_123"
+        entry.version = 1
+        return entry
+
+    @pytest.mark.asyncio
+    async def test_migrate_entry_version_1(
+        self, mock_hass: MagicMock, mock_entry: MagicMock
+    ) -> None:
+        """Test migration of version 1 entry (current version)."""
+        from custom_components.adguard_home_extended import async_migrate_entry
+
+        mock_entry.version = 1
+
+        result = await async_migrate_entry(mock_hass, mock_entry)
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_migrate_entry_future_version_fails(
+        self, mock_hass: MagicMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that migration from future version fails."""
+        from custom_components.adguard_home_extended import async_migrate_entry
+
+        mock_entry.version = 999  # Future version
+
+        result = await async_migrate_entry(mock_hass, mock_entry)
+
+        assert result is False

@@ -25,7 +25,7 @@ from .api.models import (
     DnsRewrite,
     FilteringStatus,
 )
-from .const import DEFAULT_SCAN_INTERVAL, DOMAIN
+from .const import CONF_QUERY_LOG_LIMIT, DEFAULT_QUERY_LOG_LIMIT, DEFAULT_SCAN_INTERVAL, DOMAIN
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -130,9 +130,12 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
             except AdGuardHomeConnectionError as err:
                 _LOGGER.debug("Failed to fetch DNS rewrites: %s", err)
 
-            # Fetch query log
+            # Fetch query log (limit is configurable via options)
+            query_log_limit = self.config_entry.options.get(
+                CONF_QUERY_LOG_LIMIT, DEFAULT_QUERY_LOG_LIMIT
+            )
             try:
-                data.query_log = await self.client.get_query_log(limit=100)
+                data.query_log = await self.client.get_query_log(limit=query_log_limit)
             except AdGuardHomeConnectionError as err:
                 _LOGGER.debug("Failed to fetch query log: %s", err)
 

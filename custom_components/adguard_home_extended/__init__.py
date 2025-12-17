@@ -75,6 +75,33 @@ def _get_coordinator(
     )
 
 
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old entry to new version.
+
+    This function is called when a config entry's version is lower than the current
+    VERSION in the config flow. It provides a migration path for existing users when
+    the config schema changes.
+    """
+    _LOGGER.debug(
+        "Migrating AdGuard Home config entry from version %s", config_entry.version
+    )
+
+    if config_entry.version > 1:
+        # Can't migrate from a future version
+        _LOGGER.error(
+            "Cannot migrate from version %s to version 1", config_entry.version
+        )
+        return False
+
+    if config_entry.version == 1:
+        # Current version, no migration needed
+        # Future migrations from v1 -> v2 would go here
+        pass
+
+    _LOGGER.debug("Migration successful")
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up AdGuard Home Extended from a config entry."""
     # Import here to avoid circular imports

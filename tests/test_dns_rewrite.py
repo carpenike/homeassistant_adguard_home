@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 from custom_components.adguard_home_extended.api.models import DnsRewrite
+from custom_components.adguard_home_extended.const import (
+    DEFAULT_ATTR_LIST_LIMIT,
+    DEFAULT_ATTR_TOP_ITEMS_LIMIT,
+)
 from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
 from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
 
@@ -42,7 +46,9 @@ class TestDnsRewriteSensor:
         ]
 
         sensor = next(s for s in SENSOR_TYPES if s.key == "dns_rewrites_count")
-        attrs = sensor.attributes_fn(data)
+        attrs = sensor.attributes_fn(
+            data, DEFAULT_ATTR_TOP_ITEMS_LIMIT, DEFAULT_ATTR_LIST_LIMIT
+        )
 
         assert "rewrites" in attrs
         assert len(attrs["rewrites"]) == 2
@@ -185,7 +191,9 @@ class TestQueryLogSensor:
         ]
 
         sensor = next(s for s in SENSOR_TYPES if s.key == "recent_queries")
-        attrs = sensor.attributes_fn(data)
+        attrs = sensor.attributes_fn(
+            data, DEFAULT_ATTR_TOP_ITEMS_LIMIT, DEFAULT_ATTR_LIST_LIMIT
+        )
 
         assert "recent_queries" in attrs
         assert len(attrs["recent_queries"]) == 1
@@ -206,7 +214,9 @@ class TestQueryLogSensor:
         ]
 
         sensor = next(s for s in SENSOR_TYPES if s.key == "recent_queries")
-        attrs = sensor.attributes_fn(data)
+        attrs = sensor.attributes_fn(
+            data, DEFAULT_ATTR_TOP_ITEMS_LIMIT, DEFAULT_ATTR_LIST_LIMIT
+        )
 
         assert "recent_queries" in attrs
         assert len(attrs["recent_queries"]) == 1
