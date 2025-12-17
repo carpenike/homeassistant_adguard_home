@@ -1,0 +1,60 @@
+set_blocked_services:
+  name: Set Blocked Services
+  description: Set the list of services to block globally in AdGuard Home.
+  fields:
+    services:
+      name: Services
+      description: List of service IDs to block (e.g., facebook, youtube, tiktok). Any services not in this list will be unblocked.
+      required: true
+      example: '["facebook", "instagram", "tiktok"]'
+      selector:
+        object:
+
+add_filter_url:
+  name: Add Filter URL
+  description: Add a new filter list URL to AdGuard Home.
+  fields:
+    name:
+      name: Name
+      description: A friendly name for the filter list.
+      required: true
+      example: "My Custom Filter"
+      selector:
+        text:
+    url:
+      name: URL
+      description: The URL of the filter list (must be a valid URL ending in .txt or similar).
+      required: true
+      example: "https://example.com/filters.txt"
+      selector:
+        text:
+    whitelist:
+      name: Whitelist
+      description: If true, adds this as a whitelist instead of a blocklist.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+remove_filter_url:
+  name: Remove Filter URL
+  description: Remove a filter list URL from AdGuard Home.
+  fields:
+    url:
+      name: URL
+      description: The URL of the filter list to remove.
+      required: true
+      example: "https://example.com/filters.txt"
+      selector:
+        text:
+    whitelist:
+      name: Whitelist
+      description: If true, removes from whitelists instead of blocklists.
+      required: false
+      default: false
+      selector:
+        boolean:
+
+refresh_filters:
+  name: Refresh Filters
+  description: Force refresh all filter lists in AdGuard Home. This downloads the latest versions of all enabled filter lists.

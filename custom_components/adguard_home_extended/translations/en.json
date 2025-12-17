@@ -74,6 +74,9 @@
       },
       "safe_search": {
         "name": "Safe Search"
+      },
+      "blocked_service": {
+        "name": "Block {service_name}"
       }
     },
     "binary_sensor": {
