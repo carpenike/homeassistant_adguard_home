@@ -113,6 +113,89 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
             {"top_clients": data.stats.top_clients[:10]} if data.stats else {}
         ),
     ),
+    # DNS Rewrites sensor
+    AdGuardHomeSensorEntityDescription(
+        key="dns_rewrites_count",
+        translation_key="dns_rewrites_count",
+        native_unit_of_measurement="rules",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: len(data.rewrites) if data.rewrites else 0,
+        attributes_fn=lambda data: (
+            {
+                "rewrites": [
+                    {"domain": r.domain, "answer": r.answer}
+                    for r in data.rewrites[:20]
+                ]
+            }
+            if data.rewrites
+            else {}
+        ),
+    ),
+    # DHCP sensors
+    AdGuardHomeSensorEntityDescription(
+        key="dhcp_leases_count",
+        translation_key="dhcp_leases_count",
+        native_unit_of_measurement="leases",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: len(data.dhcp.leases) if data.dhcp else 0,
+        attributes_fn=lambda data: (
+            {
+                "leases": [
+                    {
+                        "mac": lease.mac,
+                        "ip": lease.ip,
+                        "hostname": lease.hostname,
+                        "expires": lease.expires,
+                    }
+                    for lease in data.dhcp.leases[:20]
+                ]
+            }
+            if data.dhcp
+            else {}
+        ),
+    ),
+    AdGuardHomeSensorEntityDescription(
+        key="dhcp_static_leases_count",
+        translation_key="dhcp_static_leases_count",
+        native_unit_of_measurement="leases",
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda data: len(data.dhcp.static_leases) if data.dhcp else 0,
+        attributes_fn=lambda data: (
+            {
+                "static_leases": [
+                    {
+                        "mac": lease.mac,
+                        "ip": lease.ip,
+                        "hostname": lease.hostname,
+                    }
+                    for lease in data.dhcp.static_leases[:20]
+                ]
+            }
+            if data.dhcp
+            else {}
+        ),
+    ),
+    # Query log sensor
+    AdGuardHomeSensorEntityDescription(
+        key="recent_queries",
+        translation_key="recent_queries",
+        value_fn=lambda data: len(data.query_log) if data.query_log else 0,
+        attributes_fn=lambda data: (
+            {
+                "recent_queries": [
+                    {
+                        "domain": q.get("QH", ""),
+                        "client": q.get("IP", ""),
+                        "answer": q.get("Answer", ""),
+                        "reason": q.get("Reason", ""),
+                    }
+                    for q in data.query_log[:10]
+                ]
+            }
+            if data.query_log
+            else {}
+        ),
+    ),
 )
 
 

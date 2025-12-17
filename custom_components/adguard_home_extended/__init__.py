@@ -39,12 +39,16 @@ SERVICE_ADD_FILTER_URL = "add_filter_url"
 SERVICE_REMOVE_FILTER_URL = "remove_filter_url"
 SERVICE_REFRESH_FILTERS = "refresh_filters"
 SERVICE_SET_CLIENT_BLOCKED_SERVICES = "set_client_blocked_services"
+SERVICE_ADD_DNS_REWRITE = "add_dns_rewrite"
+SERVICE_REMOVE_DNS_REWRITE = "remove_dns_rewrite"
 
 ATTR_SERVICES = "services"
 ATTR_NAME = "name"
 ATTR_URL = "url"
 ATTR_WHITELIST = "whitelist"
 ATTR_CLIENT_NAME = "client_name"
+ATTR_DOMAIN = "domain"
+ATTR_ANSWER = "answer"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -139,6 +143,20 @@ async def _async_setup_services(
                 await coordinator.async_request_refresh()
                 return
 
+    async def handle_add_dns_rewrite(call: ServiceCall) -> None:
+        """Handle the add_dns_rewrite service call."""
+        domain = call.data[ATTR_DOMAIN]
+        answer = call.data[ATTR_ANSWER]
+        await coordinator.client.add_rewrite(domain, answer)
+        await coordinator.async_request_refresh()
+
+    async def handle_remove_dns_rewrite(call: ServiceCall) -> None:
+        """Handle the remove_dns_rewrite service call."""
+        domain = call.data[ATTR_DOMAIN]
+        answer = call.data[ATTR_ANSWER]
+        await coordinator.client.delete_rewrite(domain, answer)
+        await coordinator.async_request_refresh()
+
     # Only register once
     if not hass.services.has_service(DOMAIN, SERVICE_SET_BLOCKED_SERVICES):
         hass.services.async_register(
@@ -196,6 +214,30 @@ async def _async_setup_services(
                     vol.Required(ATTR_SERVICES): vol.All(
                         cv.ensure_list, [cv.string]
                     ),
+                }
+            ),
+        )
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_ADD_DNS_REWRITE,
+            handle_add_dns_rewrite,
+            schema=vol.Schema(
+                {
+                    vol.Required(ATTR_DOMAIN): cv.string,
+                    vol.Required(ATTR_ANSWER): cv.string,
+                }
+            ),
+        )
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_REMOVE_DNS_REWRITE,
+            handle_remove_dns_rewrite,
+            schema=vol.Schema(
+                {
+                    vol.Required(ATTR_DOMAIN): cv.string,
+                    vol.Required(ATTR_ANSWER): cv.string,
                 }
             ),
         )

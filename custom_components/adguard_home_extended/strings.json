@@ -57,6 +57,18 @@
       },
       "top_client": {
         "name": "Top Client"
+      },
+      "dns_rewrites_count": {
+        "name": "DNS Rewrites"
+      },
+      "dhcp_leases_count": {
+        "name": "DHCP Leases"
+      },
+      "dhcp_static_leases_count": {
+        "name": "DHCP Static Leases"
+      },
+      "recent_queries": {
+        "name": "Recent Queries"
       }
     },
     "switch": {

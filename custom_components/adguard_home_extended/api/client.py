@@ -19,6 +19,7 @@ from .models import (
 from ..const import (
     API_STATUS,
     API_STATS,
+    API_QUERYLOG,
     API_PROTECTION,
     API_SAFEBROWSING_ENABLE,
     API_SAFEBROWSING_DISABLE,
@@ -267,6 +268,20 @@ class AdGuardHomeClient:
     async def delete_rewrite(self, domain: str, answer: str) -> None:
         """Delete a DNS rewrite."""
         await self._post(API_REWRITE_DELETE, {"domain": domain, "answer": answer})
+
+    # Query log
+    async def get_query_log(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        search: str | None = None,
+    ) -> list[dict]:
+        """Get query log entries."""
+        params = {"limit": limit, "offset": offset}
+        if search:
+            params["search"] = search
+        data = await self._get(f"{API_QUERYLOG}?limit={limit}&offset={offset}")
+        return data.get("data", []) if data else []
 
     # DHCP
     async def get_dhcp_status(self) -> DhcpStatus:

@@ -77,3 +77,41 @@ set_client_blocked_services:
       example: '["tiktok", "youtube", "instagram"]'
       selector:
         object:
+
+add_dns_rewrite:
+  name: Add DNS Rewrite
+  description: Add a DNS rewrite rule to redirect a domain to a specific IP or another domain.
+  fields:
+    domain:
+      name: Domain
+      description: The domain name to rewrite (e.g., example.com or *.example.com for wildcard).
+      required: true
+      example: "ads.example.com"
+      selector:
+        text:
+    answer:
+      name: Answer
+      description: The IP address or domain name to redirect to (use A.B.C.D for IPv4, AAAA for IPv6, or another domain).
+      required: true
+      example: "0.0.0.0"
+      selector:
+        text:
+
+remove_dns_rewrite:
+  name: Remove DNS Rewrite
+  description: Remove an existing DNS rewrite rule.
+  fields:
+    domain:
+      name: Domain
+      description: The domain name of the rewrite rule to remove.
+      required: true
+      example: "ads.example.com"
+      selector:
+        text:
+    answer:
+      name: Answer
+      description: The answer (IP/domain) of the rewrite rule to remove.
+      required: true
+      example: "0.0.0.0"
+      selector:
+        text:

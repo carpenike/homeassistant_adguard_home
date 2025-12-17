@@ -22,6 +22,7 @@ from .api.models import (
     AdGuardHomeStats,
     FilteringStatus,
     DhcpStatus,
+    DnsRewrite,
 )
 from .const import DOMAIN, DEFAULT_SCAN_INTERVAL
 
@@ -43,6 +44,8 @@ class AdGuardHomeData:
         self.available_services: list[dict[str, Any]] = []
         self.clients: list[dict[str, Any]] = []
         self.dhcp: DhcpStatus | None = None
+        self.rewrites: list[DnsRewrite] = []
+        self.query_log: list[dict[str, Any]] = []
 
 
 class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
@@ -129,6 +132,18 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
                 data.dhcp = await self.client.get_dhcp_status()
             except AdGuardHomeConnectionError as err:
                 _LOGGER.debug("Failed to fetch DHCP status: %s", err)
+
+            # Fetch DNS rewrites
+            try:
+                data.rewrites = await self.client.get_rewrites()
+            except AdGuardHomeConnectionError as err:
+                _LOGGER.debug("Failed to fetch DNS rewrites: %s", err)
+
+            # Fetch query log
+            try:
+                data.query_log = await self.client.get_query_log(limit=100)
+            except AdGuardHomeConnectionError as err:
+                _LOGGER.debug("Failed to fetch query log: %s", err)
 
         except AdGuardHomeAuthError as err:
             raise ConfigEntryAuthFailed(
