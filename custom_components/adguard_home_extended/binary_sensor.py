@@ -3,20 +3,22 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
     BinarySensorEntity,
     BinarySensorEntityDescription,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
 from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
+
+if TYPE_CHECKING:
+    from . import AdGuardHomeConfigEntry
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -53,11 +55,11 @@ BINARY_SENSOR_TYPES: tuple[AdGuardHomeBinarySensorEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: AdGuardHomeConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up AdGuard Home binary sensors based on a config entry."""
-    coordinator: AdGuardHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     async_add_entities(
         AdGuardHomeBinarySensor(coordinator, description)

@@ -90,6 +90,38 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
             config_entry=entry,
         )
         self.client = client
+        # Will be populated in _async_setup
+        self._available_services: list[dict[str, Any]] = []
+        self._server_version: AdGuardHomeVersion | None = None
+
+    async def _async_setup(self) -> None:
+        """Set up the coordinator - called once during first refresh.
+
+        This method is called once during the first coordinator refresh
+        (Home Assistant 2024.8+). Use it for one-time initialization that
+        shouldn't be repeated on every update.
+        """
+        try:
+            # Fetch server version - rarely changes
+            status = await self.client.get_status()
+            self._server_version = parse_version(status.version)
+            _LOGGER.debug("AdGuard Home version detected: %s", self._server_version)
+
+            # Fetch available blocked services - static per installation
+            # This only changes when AdGuard Home is upgraded
+            services = await self.client.get_all_blocked_services()
+            self._available_services = [
+                {"id": svc.id, "name": svc.name} for svc in services
+            ]
+            _LOGGER.debug(
+                "Loaded %d available blocked services", len(self._available_services)
+            )
+        except AdGuardHomeAuthError as err:
+            raise ConfigEntryAuthFailed(
+                f"Authentication failed during setup: {err}"
+            ) from err
+        except AdGuardHomeConnectionError as err:
+            raise UpdateFailed(f"Error during coordinator setup: {err}") from err
 
     async def _async_update_data(self) -> AdGuardHomeData:
         """Fetch data from AdGuard Home."""
@@ -120,10 +152,8 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
                 blocked_data = await self.client.get_blocked_services_with_schedule()
                 data.blocked_services = blocked_data.get("ids", [])
                 data.blocked_services_schedule = blocked_data.get("schedule")
-                services = await self.client.get_all_blocked_services()
-                data.available_services = [
-                    {"id": svc.id, "name": svc.name} for svc in services
-                ]
+                # Use cached available services from _async_setup
+                data.available_services = self._available_services
             except AdGuardHomeConnectionError as err:
                 _LOGGER.debug("Failed to fetch blocked services: %s", err)
 
@@ -166,17 +196,19 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
             except AdGuardHomeConnectionError as err:
                 _LOGGER.debug("Failed to fetch query log: %s", err)
 
-            # Fetch stats config (v0.107.30+)
-            try:
-                data.stats_config = await self.client.get_stats_config()
-            except AdGuardHomeConnectionError as err:
-                _LOGGER.debug("Failed to fetch stats config: %s", err)
+            # Fetch stats config (v0.107.30+) - only if version supports it
+            if self._server_version and self._server_version.supports_stats_config:
+                try:
+                    data.stats_config = await self.client.get_stats_config()
+                except AdGuardHomeConnectionError as err:
+                    _LOGGER.debug("Failed to fetch stats config: %s", err)
 
-            # Fetch query log config (v0.107.30+)
-            try:
-                data.querylog_config = await self.client.get_querylog_config()
-            except AdGuardHomeConnectionError as err:
-                _LOGGER.debug("Failed to fetch query log config: %s", err)
+            # Fetch query log config (v0.107.30+) - only if version supports it
+            if self._server_version and self._server_version.supports_querylog_config:
+                try:
+                    data.querylog_config = await self.client.get_querylog_config()
+                except AdGuardHomeConnectionError as err:
+                    _LOGGER.debug("Failed to fetch query log config: %s", err)
 
         except AdGuardHomeAuthError as err:
             raise ConfigEntryAuthFailed(
@@ -186,6 +218,15 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
             raise UpdateFailed(f"Error communicating with AdGuard Home: {err}") from err
 
         return data
+
+    @property
+    def server_version(self) -> AdGuardHomeVersion:
+        """Return the cached server version.
+
+        This version is detected during _async_setup and can be used by
+        entities to gate feature usage based on API availability.
+        """
+        return self._server_version or parse_version("")
 
     @property
     def device_info(self) -> DeviceInfo:

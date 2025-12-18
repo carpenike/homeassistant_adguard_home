@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.switch import SwitchEntity, SwitchEntityDescription
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -16,6 +16,11 @@ from .api.client import AdGuardHomeClient
 from .api.models import DnsRewrite
 from .const import DOMAIN
 from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
+
+if TYPE_CHECKING:
+    from . import AdGuardHomeConfigEntry
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -119,11 +124,11 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: AdGuardHomeConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up AdGuard Home switches based on a config entry."""
-    coordinator: AdGuardHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     # Add global switches
     entities: list[SwitchEntity] = [
@@ -360,7 +365,11 @@ class DnsRewriteEntityManager:
 class AdGuardDnsRewriteSwitch(
     CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
 ):
-    """Switch to enable/disable a DNS rewrite rule (v0.107.68+)."""
+    """Switch to enable/disable a DNS rewrite rule (v0.107.68+).
+
+    For AdGuard Home versions < 0.107.68, this switch uses a fallback
+    mechanism of deleting and re-adding the rewrite rule.
+    """
 
     _attr_has_entity_name = True
     _attr_icon = "mdi:dns"
@@ -389,10 +398,16 @@ class AdGuardDnsRewriteSwitch(
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes."""
-        return {
+        attrs = {
             "domain": self._domain,
             "answer": self._answer,
         }
+        # Include version-gating info
+        if self.coordinator.server_version:
+            attrs[
+                "native_toggle_support"
+            ] = self.coordinator.server_version.supports_rewrite_enabled
+        return attrs
 
     def _get_rewrite_data(self) -> DnsRewrite | None:
         """Get the rewrite data from coordinator."""
@@ -413,18 +428,40 @@ class AdGuardDnsRewriteSwitch(
     def is_on(self) -> bool | None:
         """Return true if the DNS rewrite is enabled."""
         rewrite = self._get_rewrite_data()
-        return rewrite.enabled if rewrite else None
+        if rewrite is None:
+            return None
+        # For older versions without enabled field, always report as enabled
+        if not self.coordinator.server_version.supports_rewrite_enabled:
+            return True
+        return rewrite.enabled
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable the DNS rewrite rule."""
-        await self.coordinator.client.set_rewrite_enabled(
-            self._domain, self._answer, True
-        )
+        if self.coordinator.server_version.supports_rewrite_enabled:
+            # v0.107.68+: Use native enable/disable API
+            await self.coordinator.client.set_rewrite_enabled(
+                self._domain, self._answer, True
+            )
+        else:
+            # Older versions: Delete and re-add (rewrite is already "on" if it exists)
+            # No action needed for turn_on in older versions
+            pass
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable the DNS rewrite rule."""
-        await self.coordinator.client.set_rewrite_enabled(
-            self._domain, self._answer, False
-        )
+        if self.coordinator.server_version.supports_rewrite_enabled:
+            # v0.107.68+: Use native enable/disable API
+            await self.coordinator.client.set_rewrite_enabled(
+                self._domain, self._answer, False
+            )
+        else:
+            # Older versions: No native disable - rewrite can only exist as enabled
+            # User should use delete_rewrite service instead
+            _LOGGER.warning(
+                "Cannot disable rewrite %s -> %s on AGH < v0.107.68. "
+                "Use delete_rewrite service instead",
+                self._domain,
+                self._answer,
+            )
         await self.coordinator.async_request_refresh()

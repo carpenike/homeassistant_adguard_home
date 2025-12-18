@@ -839,6 +839,61 @@ class TestAdGuardHomeClient:
         assert "/control/safesearch/settings" in call_args[0][1]
 
     @pytest.mark.asyncio
+    async def test_set_safesearch_toggle(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test toggling SafeSearch on/off preserves per-engine settings.
+
+        The set_safesearch method should use the non-deprecated settings
+        endpoint instead of the deprecated enable/disable endpoints.
+        """
+
+        # First call: GET to retrieve current settings
+        get_response_data = {
+            "enabled": False,
+            "bing": True,
+            "duckduckgo": False,
+            "google": True,
+            "pixabay": True,
+            "yandex": False,
+            "youtube": True,
+        }
+        mock_get_response = create_mock_response(
+            status=200, json_data=get_response_data
+        )
+
+        # Second call: PUT to update settings
+        mock_put_response = create_mock_response(status=200, json_data=None)
+        mock_put_response.content_length = 0
+
+        mock_session.request.side_effect = [
+            MockContextManager(mock_get_response),
+            MockContextManager(mock_put_response),
+        ]
+
+        # Enable safesearch (was disabled)
+        await client.set_safesearch(True)
+
+        # Should have made 2 calls: GET then PUT
+        assert mock_session.request.call_count == 2
+
+        # First call should be GET for current settings
+        first_call = mock_session.request.call_args_list[0]
+        assert first_call[0][0] == "GET"
+        assert "/control/safesearch/settings" in first_call[0][1]
+
+        # Second call should be PUT with enabled=True and preserved engine settings
+        second_call = mock_session.request.call_args_list[1]
+        assert second_call[0][0] == "PUT"
+        assert "/control/safesearch/settings" in second_call[0][1]
+
+        # Verify the payload has enabled=True and preserves engine settings
+        request_json = second_call[1].get("json", {})
+        assert request_json["enabled"] is True
+        assert request_json["google"] is True  # Preserved
+        assert request_json["duckduckgo"] is False  # Preserved
+
+    @pytest.mark.asyncio
     async def test_get_stats_config(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:

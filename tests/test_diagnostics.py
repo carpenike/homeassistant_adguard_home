@@ -1,16 +1,16 @@
 """Tests for diagnostics support."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from custom_components.adguard_home_extended.api.models import (
-    AdGuardHomeStatus,
     AdGuardHomeStats,
-    FilteringStatus,
+    AdGuardHomeStatus,
     DhcpStatus,
     DnsRewrite,
+    FilteringStatus,
 )
 from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
 from custom_components.adguard_home_extended.diagnostics import (
@@ -25,7 +25,7 @@ class TestDiagnostics:
     def mock_coordinator(self) -> MagicMock:
         """Create a mock coordinator with test data."""
         coordinator = MagicMock()
-        
+
         data = AdGuardHomeData()
         data.status = AdGuardHomeStatus(
             protection_enabled=True,
@@ -66,15 +66,17 @@ class TestDiagnostics:
                 "blocked_services": ["youtube"],
             }
         ]
-        data.dhcp = DhcpStatus(enabled=True, interface_name="eth0", leases=[], static_leases=[])
+        data.dhcp = DhcpStatus(
+            enabled=True, interface_name="eth0", leases=[], static_leases=[]
+        )
         data.rewrites = [DnsRewrite(domain="custom.local", answer="192.168.1.50")]
         data.query_log = [{"QH": "example.com", "IP": "192.168.1.10"}]
-        
+
         coordinator.data = data
         return coordinator
 
     @pytest.fixture
-    def mock_entry(self) -> MagicMock:
+    def mock_entry(self, mock_coordinator: MagicMock) -> MagicMock:
         """Create a mock config entry."""
         entry = MagicMock()
         entry.as_dict.return_value = {
@@ -86,6 +88,9 @@ class TestDiagnostics:
                 "password": "secret123",
             },
         }
+        entry.entry_id = "test_entry_id"
+        # Coordinator is now stored in runtime_data
+        entry.runtime_data = mock_coordinator
         return entry
 
     @pytest.mark.asyncio
@@ -94,8 +99,8 @@ class TestDiagnostics:
     ) -> None:
         """Test that diagnostics returns a dictionary."""
         hass = MagicMock()
-        hass.data = {"adguard_home_extended": {"test_entry_id": mock_coordinator}}
-        mock_entry.entry_id = "test_entry_id"
+        # hass.data no longer stores coordinators with runtime_data pattern
+        hass.data = {}
 
         result = await async_get_config_entry_diagnostics(hass, mock_entry)
 
@@ -109,8 +114,7 @@ class TestDiagnostics:
     ) -> None:
         """Test that diagnostics redacts sensitive credentials."""
         hass = MagicMock()
-        hass.data = {"adguard_home_extended": {"test_entry_id": mock_coordinator}}
-        mock_entry.entry_id = "test_entry_id"
+        hass.data = {}
 
         result = await async_get_config_entry_diagnostics(hass, mock_entry)
 
@@ -124,8 +128,7 @@ class TestDiagnostics:
     ) -> None:
         """Test that diagnostics includes status info."""
         hass = MagicMock()
-        hass.data = {"adguard_home_extended": {"test_entry_id": mock_coordinator}}
-        mock_entry.entry_id = "test_entry_id"
+        hass.data = {}
 
         result = await async_get_config_entry_diagnostics(hass, mock_entry)
 
@@ -141,8 +144,7 @@ class TestDiagnostics:
     ) -> None:
         """Test that diagnostics includes stats."""
         hass = MagicMock()
-        hass.data = {"adguard_home_extended": {"test_entry_id": mock_coordinator}}
-        mock_entry.entry_id = "test_entry_id"
+        hass.data = {}
 
         result = await async_get_config_entry_diagnostics(hass, mock_entry)
 
@@ -159,8 +161,7 @@ class TestDiagnostics:
     ) -> None:
         """Test that diagnostics redacts client IDs (IPs/MACs)."""
         hass = MagicMock()
-        hass.data = {"adguard_home_extended": {"test_entry_id": mock_coordinator}}
-        mock_entry.entry_id = "test_entry_id"
+        hass.data = {}
 
         result = await async_get_config_entry_diagnostics(hass, mock_entry)
 
@@ -177,8 +178,7 @@ class TestDiagnostics:
     ) -> None:
         """Test that diagnostics includes rewrite domains but not answers."""
         hass = MagicMock()
-        hass.data = {"adguard_home_extended": {"test_entry_id": mock_coordinator}}
-        mock_entry.entry_id = "test_entry_id"
+        hass.data = {}
 
         result = await async_get_config_entry_diagnostics(hass, mock_entry)
 
@@ -194,10 +194,10 @@ class TestDiagnostics:
         """Test that diagnostics handles missing coordinator data gracefully."""
         coordinator = MagicMock()
         coordinator.data = AdGuardHomeData()  # Empty data
-        
+        mock_entry.runtime_data = coordinator  # Override with empty coordinator
+
         hass = MagicMock()
-        hass.data = {"adguard_home_extended": {"test_entry_id": coordinator}}
-        mock_entry.entry_id = "test_entry_id"
+        hass.data = {}
 
         result = await async_get_config_entry_diagnostics(hass, mock_entry)
 

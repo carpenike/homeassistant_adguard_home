@@ -25,6 +25,9 @@ from .coordinator import AdGuardHomeDataUpdateCoordinator
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
 
+    # Type alias for typed ConfigEntry with runtime_data
+    AdGuardHomeConfigEntry = ConfigEntry[AdGuardHomeDataUpdateCoordinator]
+
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS: list[Platform] = [
@@ -66,20 +69,24 @@ ATTR_RESPONSE_STATUS = "response_status"
 def _get_coordinator(
     hass: HomeAssistant, entry_id: str | None
 ) -> AdGuardHomeDataUpdateCoordinator:
-    """Get coordinator for the given entry_id or the only one if not specified."""
-    coordinators = hass.data.get(DOMAIN, {})
+    """Get coordinator for the given entry_id or the only one if not specified.
 
-    if not coordinators:
+    Uses entry.runtime_data to access coordinators from config entries.
+    """
+    entries = hass.config_entries.async_entries(DOMAIN)
+
+    if not entries:
         raise HomeAssistantError("No AdGuard Home instances configured")
 
     if entry_id:
-        if entry_id not in coordinators:
-            raise HomeAssistantError(f"AdGuard Home instance {entry_id} not found")
-        return coordinators[entry_id]
+        for entry in entries:
+            if entry.entry_id == entry_id:
+                return entry.runtime_data
+        raise HomeAssistantError(f"AdGuard Home instance {entry_id} not found")
 
     # If only one instance, use it; otherwise require entry_id
-    if len(coordinators) == 1:
-        return next(iter(coordinators.values()))
+    if len(entries) == 1:
+        return entries[0].runtime_data
 
     raise HomeAssistantError(
         "Multiple AdGuard Home instances configured. Please specify entry_id."
@@ -113,7 +120,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_setup_entry(hass: HomeAssistant, entry: AdGuardHomeConfigEntry) -> bool:
     """Set up AdGuard Home Extended from a config entry."""
     # Import here to avoid circular imports
     from .api.client import AdGuardHomeClient
@@ -135,8 +142,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await coordinator.async_config_entry_first_refresh()
 
+    # Store coordinator in runtime_data for typed access and auto-cleanup
+    entry.runtime_data = coordinator
+
+    # Keep hass.data for managers that need multi-instance lookup
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = coordinator
 
     # Register services before platforms to avoid race condition
     # Services should be available when entities are created
@@ -151,7 +161,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def _async_update_listener(
+    hass: HomeAssistant, entry: AdGuardHomeConfigEntry
+) -> None:
     """Handle options update - reload the config entry."""
     await hass.config_entries.async_reload(entry.entry_id)
 
@@ -458,7 +470,9 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
     )
 
 
-async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+async def async_unload_entry(
+    hass: HomeAssistant, entry: AdGuardHomeConfigEntry
+) -> bool:
     """Unload a config entry."""
     # Clean up ClientEntityManager if it exists
     if (
@@ -477,7 +491,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         rewrite_manager.async_unsubscribe()
 
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        # Coordinator cleanup is automatic via runtime_data
 
         # Clean up empty client_managers dict
         if (
@@ -494,13 +508,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass.data[DOMAIN].pop("rewrite_managers", None)
 
         # Unregister services when last instance is removed
-        # Check if there are no more coordinator entries (only managers might remain)
-        remaining_entries = {
-            k
-            for k in hass.data.get(DOMAIN, {}).keys()
-            if k not in ("client_managers", "rewrite_managers")
-        }
-        if not remaining_entries:
+        remaining_entries = hass.config_entries.async_entries(DOMAIN)
+        # Filter to only loaded entries (exclude the one being unloaded)
+        loaded_entries = [e for e in remaining_entries if e.entry_id != entry.entry_id]
+        if not loaded_entries:
             for service in [
                 SERVICE_SET_BLOCKED_SERVICES,
                 SERVICE_ADD_FILTER_URL,
@@ -519,7 +530,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return unload_ok
 
 
-async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+async def async_remove_entry(
+    hass: HomeAssistant, entry: AdGuardHomeConfigEntry
+) -> None:
     """Handle removal of a config entry.
 
     This is called after async_unload_entry has been called.
@@ -527,11 +540,8 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """
     _LOGGER.debug("Removing AdGuard Home config entry: %s", entry.entry_id)
 
-    # Clean up any remaining domain data
+    # Clean up any remaining domain data (managers)
     if DOMAIN in hass.data:
-        # Remove entry from domain data if somehow still present
-        hass.data[DOMAIN].pop(entry.entry_id, None)
-
         # Remove from client_managers if still present
         if "client_managers" in hass.data[DOMAIN]:
             hass.data[DOMAIN]["client_managers"].pop(entry.entry_id, None)

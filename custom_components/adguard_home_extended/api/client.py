@@ -42,8 +42,6 @@ from ..const import (
     API_REWRITE_UPDATE,
     API_SAFEBROWSING_DISABLE,
     API_SAFEBROWSING_ENABLE,
-    API_SAFESEARCH_DISABLE,
-    API_SAFESEARCH_ENABLE,
     API_SAFESEARCH_SETTINGS,
     API_STATS,
     API_STATS_CONFIG,
@@ -211,9 +209,15 @@ class AdGuardHomeClient:
         await self._post(endpoint)
 
     async def set_safesearch(self, enabled: bool) -> None:
-        """Enable or disable safe search."""
-        endpoint = API_SAFESEARCH_ENABLE if enabled else API_SAFESEARCH_DISABLE
-        await self._post(endpoint)
+        """Enable or disable safe search.
+
+        Uses the non-deprecated /control/safesearch/settings endpoint instead of
+        the deprecated /control/safesearch/enable and /control/safesearch/disable
+        endpoints. This preserves per-engine settings when toggling.
+        """
+        settings = await self.get_safesearch_settings()
+        settings.enabled = enabled
+        await self.set_safesearch_settings(settings)
 
     async def get_safesearch_settings(self) -> SafeSearchSettings:
         """Get SafeSearch settings with per-engine control.

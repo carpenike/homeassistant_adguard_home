@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Extended AdGuard Home integration for Home Assistant"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [
     {name = "Ryan", email = "ryan@example.com"},
 ]
@@ -16,8 +16,8 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 dependencies = [
@@ -38,7 +38,7 @@ asyncio_mode = "auto"
 pythonpath = ["."]
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py312"
 line-length = 88
 select = [
     "E",    # pycodestyle errors
@@ -57,7 +57,7 @@ ignore = [
 known-first-party = ["custom_components.adguard_home_extended"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true

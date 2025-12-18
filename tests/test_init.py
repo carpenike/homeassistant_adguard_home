@@ -19,6 +19,7 @@ class TestAsyncUnloadEntry:
         hass = MagicMock(spec=HomeAssistant)
         hass.config_entries = MagicMock()
         hass.config_entries.async_unload_platforms = AsyncMock(return_value=True)
+        hass.config_entries.async_entries = MagicMock(return_value=[])
         hass.services = MagicMock()
         hass.services.async_remove = MagicMock()
         return hass
@@ -28,6 +29,7 @@ class TestAsyncUnloadEntry:
         """Return a mock config entry."""
         entry = MagicMock()
         entry.entry_id = "test_entry_123"
+        entry.runtime_data = MagicMock()  # Coordinator is now in runtime_data
         return entry
 
     @pytest.mark.asyncio
@@ -39,14 +41,16 @@ class TestAsyncUnloadEntry:
         mock_client_manager = MagicMock()
         mock_client_manager.async_unsubscribe = MagicMock()
 
+        # Only managers are in hass.data now, coordinator is in runtime_data
         mock_hass.data = {
             DOMAIN: {
-                mock_entry.entry_id: MagicMock(),  # coordinator
                 "client_managers": {
                     mock_entry.entry_id: mock_client_manager,
                 },
             }
         }
+        # No other entries loaded
+        mock_hass.config_entries.async_entries = MagicMock(return_value=[mock_entry])
 
         result = await async_unload_entry(mock_hass, mock_entry)
 
@@ -61,28 +65,24 @@ class TestAsyncUnloadEntry:
         self, mock_hass: MagicMock, mock_entry: MagicMock
     ) -> None:
         """Test unload works when there's no client manager."""
-        mock_hass.data = {
-            DOMAIN: {
-                mock_entry.entry_id: MagicMock(),  # coordinator
-            }
-        }
+        # Only coordinator in runtime_data, no managers
+        mock_hass.data = {DOMAIN: {}}
+        # No other entries loaded
+        mock_hass.config_entries.async_entries = MagicMock(return_value=[mock_entry])
 
         result = await async_unload_entry(mock_hass, mock_entry)
 
         assert result is True
-        # Verify entry was removed
-        assert mock_entry.entry_id not in mock_hass.data[DOMAIN]
+        # Nothing to clean up from hass.data since coordinator is in runtime_data
 
     @pytest.mark.asyncio
     async def test_unload_removes_services_when_last_entry(
         self, mock_hass: MagicMock, mock_entry: MagicMock
     ) -> None:
         """Test that services are removed when last entry is unloaded."""
-        mock_hass.data = {
-            DOMAIN: {
-                mock_entry.entry_id: MagicMock(),  # Only entry
-            }
-        }
+        mock_hass.data = {DOMAIN: {}}
+        # Only this entry exists
+        mock_hass.config_entries.async_entries = MagicMock(return_value=[mock_entry])
 
         result = await async_unload_entry(mock_hass, mock_entry)
 
@@ -95,13 +95,15 @@ class TestAsyncUnloadEntry:
         self, mock_hass: MagicMock, mock_entry: MagicMock
     ) -> None:
         """Test that services are kept when other entries still exist."""
-        other_entry_id = "other_entry_456"
-        mock_hass.data = {
-            DOMAIN: {
-                mock_entry.entry_id: MagicMock(),
-                other_entry_id: MagicMock(),  # Another entry exists
-            }
-        }
+        other_entry = MagicMock()
+        other_entry.entry_id = "other_entry_456"
+        other_entry.runtime_data = MagicMock()
+
+        mock_hass.data = {DOMAIN: {}}
+        # Multiple entries exist
+        mock_hass.config_entries.async_entries = MagicMock(
+            return_value=[mock_entry, other_entry]
+        )
 
         result = await async_unload_entry(mock_hass, mock_entry)
 
@@ -119,12 +121,13 @@ class TestAsyncUnloadEntry:
 
         mock_hass.data = {
             DOMAIN: {
-                mock_entry.entry_id: MagicMock(),
                 "client_managers": {
                     mock_entry.entry_id: mock_client_manager,
                 },
             }
         }
+        # Only this entry loaded
+        mock_hass.config_entries.async_entries = MagicMock(return_value=[mock_entry])
 
         result = await async_unload_entry(mock_hass, mock_entry)
 
@@ -138,17 +141,12 @@ class TestAsyncUnloadEntry:
     ) -> None:
         """Test that unload returns False when platform unload fails."""
         mock_hass.config_entries.async_unload_platforms = AsyncMock(return_value=False)
-        mock_hass.data = {
-            DOMAIN: {
-                mock_entry.entry_id: MagicMock(),
-            }
-        }
+        mock_hass.data = {DOMAIN: {}}
+        mock_hass.config_entries.async_entries = MagicMock(return_value=[mock_entry])
 
         result = await async_unload_entry(mock_hass, mock_entry)
 
         assert result is False
-        # Entry should still be in data since unload failed
-        assert mock_entry.entry_id in mock_hass.data[DOMAIN]
 
 
 class TestAsyncMigrateEntry:
@@ -208,6 +206,7 @@ class TestAsyncRemoveEntry:
         """Return a mock config entry."""
         entry = MagicMock()
         entry.entry_id = "test_entry_123"
+        entry.runtime_data = MagicMock()
         return entry
 
     @pytest.mark.asyncio
@@ -217,11 +216,8 @@ class TestAsyncRemoveEntry:
         """Test that remove entry cleans up domain data."""
         from custom_components.adguard_home_extended import async_remove_entry
 
-        mock_hass.data = {
-            DOMAIN: {
-                mock_entry.entry_id: MagicMock(),
-            }
-        }
+        # With runtime_data, hass.data only has managers, not coordinators
+        mock_hass.data = {DOMAIN: {}}
 
         await async_remove_entry(mock_hass, mock_entry)
 
@@ -237,7 +233,6 @@ class TestAsyncRemoveEntry:
 
         mock_hass.data = {
             DOMAIN: {
-                mock_entry.entry_id: MagicMock(),
                 "client_managers": {
                     mock_entry.entry_id: MagicMock(),
                 },
@@ -250,25 +245,27 @@ class TestAsyncRemoveEntry:
         assert DOMAIN not in mock_hass.data
 
     @pytest.mark.asyncio
-    async def test_remove_entry_preserves_other_entries(
+    async def test_remove_entry_preserves_other_managers(
         self, mock_hass: MagicMock, mock_entry: MagicMock
     ) -> None:
-        """Test that remove entry preserves other entries."""
+        """Test that remove entry preserves other managers."""
         from custom_components.adguard_home_extended import async_remove_entry
 
         other_entry_id = "other_entry_456"
         mock_hass.data = {
             DOMAIN: {
-                mock_entry.entry_id: MagicMock(),
-                other_entry_id: MagicMock(),
+                "client_managers": {
+                    mock_entry.entry_id: MagicMock(),
+                    other_entry_id: MagicMock(),
+                }
             }
         }
 
         await async_remove_entry(mock_hass, mock_entry)
 
-        # Domain data should still exist with other entry
+        # Domain data should still exist with other manager
         assert DOMAIN in mock_hass.data
-        assert other_entry_id in mock_hass.data[DOMAIN]
+        assert other_entry_id in mock_hass.data[DOMAIN]["client_managers"]
 
     @pytest.mark.asyncio
     async def test_remove_entry_no_data(

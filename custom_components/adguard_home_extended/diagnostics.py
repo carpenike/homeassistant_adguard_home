@@ -1,15 +1,14 @@
 """Diagnostics support for AdGuard Home Extended."""
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.diagnostics import async_redact_data
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
-from .const import DOMAIN
-from .coordinator import AdGuardHomeDataUpdateCoordinator
+if TYPE_CHECKING:
+    from . import AdGuardHomeConfigEntry
 
 TO_REDACT = {CONF_PASSWORD, CONF_USERNAME}
 
@@ -18,10 +17,10 @@ TO_REDACT_NESTED = {"ids", "mac", "ip", "hostname", "IP"}
 
 
 async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: ConfigEntry
+    hass: HomeAssistant, entry: AdGuardHomeConfigEntry
 ) -> dict[str, Any]:
     """Return diagnostics for a config entry."""
-    coordinator: AdGuardHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     data = coordinator.data
 

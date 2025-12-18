@@ -158,12 +158,25 @@ automation:
 
 ## Compatibility
 
+*Last verified: December 2025*
+
 ### Version Requirements
 
-| Component | Minimum Version | Recommended | Notes |
-|-----------|----------------|-------------|-------|
-| **Home Assistant** | 2025.1.0 | 2025.12.0+ | For latest integration patterns |
-| **AdGuard Home** | 0.107.30 | 0.107.69+ | Latest stable (Oct 2025) |
+| Component | Minimum Version | Recommended | Tested |
+|-----------|----------------|-------------|--------|
+| **Home Assistant** | 2025.1.0 | 2025.12.0+ | ✅ 2025.12 (Dec 3, 2025) |
+| **AdGuard Home** | 0.107.30 | 0.107.69+ | ✅ 0.107.69 (Oct 30, 2025) |
+
+### Home Assistant 2025.12 Compatibility
+
+This integration follows current Home Assistant best practices:
+
+- ✅ `DataUpdateCoordinator` with explicit `config_entry` parameter (2025.11 deprecation ready)
+- ✅ `entry.runtime_data` pattern for typed coordinator access
+- ✅ `_async_setup()` method for one-time coordinator initialization (2024.8+)
+- ✅ `CoordinatorEntity` base class for all entities
+- ✅ `translation_key` pattern for entity names
+- ✅ Proper `unique_id` and `device_info` for device registry
 
 ### Feature Availability by AdGuard Home Version
 
@@ -173,10 +186,14 @@ Some features require specific AdGuard Home versions:
 |---------|---------------------|--------------|
 | Basic protection/filtering | 0.107.0+ | `/control/status`, `/control/protection` |
 | Stats and query log config | 0.107.30+ | `/control/stats/config`, `/control/querylog/config` |
+| SafeSearch per-engine settings | 0.107.43+ | `/control/safesearch/settings` |
 | Ecosia safe search | 0.107.52+ | `/control/safesearch/settings` |
 | Blocked services with schedule | 0.107.56+ | `/control/blocked_services/get` |
+| Check host with client/qtype | 0.107.58+ | `/control/check_host` |
 | DNS cache enable/disable | 0.107.65+ | `/control/dns_config` with `cache_enabled` |
+| AI services blocking (ChatGPT, Claude) | 0.107.66+ | `/control/blocked_services/all` |
 | DNS rewrite enable/disable | 0.107.68+ | `/control/rewrite/update` with `enabled` |
+| Query log response_status filter | 0.107.68+ | `/control/querylog` |
 
 ### Integration Version History
 

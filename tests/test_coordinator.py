@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from custom_components.adguard_home_extended.api.client import (
@@ -452,3 +453,90 @@ class TestAdGuardHomeDataUpdateCoordinator:
 
         # Should handle None version gracefully
         assert device_info["sw_version"] is None
+
+    @pytest.mark.asyncio
+    async def test_async_setup_success(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test _async_setup fetches version and available services."""
+        from custom_components.adguard_home_extended.api.models import BlockedService
+
+        mock_client.get_all_blocked_services = AsyncMock(
+            return_value=[
+                BlockedService(id="facebook", name="Facebook"),
+                BlockedService(id="youtube", name="YouTube"),
+            ]
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        await coordinator._async_setup()
+
+        # Should have cached the version
+        assert coordinator._server_version is not None
+        assert coordinator._server_version.parsed == (0, 107, 43)
+
+        # Should have cached available services
+        assert len(coordinator._available_services) == 2
+        assert coordinator._available_services[0]["id"] == "facebook"
+        assert coordinator._available_services[1]["name"] == "YouTube"
+
+    @pytest.mark.asyncio
+    async def test_async_setup_auth_error(
+        self, hass: HomeAssistant, mock_entry: MagicMock
+    ) -> None:
+        """Test _async_setup raises ConfigEntryAuthFailed on auth error."""
+        mock_client = AsyncMock()
+        mock_client.get_status = AsyncMock(
+            side_effect=AdGuardHomeAuthError("Invalid credentials")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        with pytest.raises(ConfigEntryAuthFailed, match="Authentication failed"):
+            await coordinator._async_setup()
+
+    @pytest.mark.asyncio
+    async def test_async_setup_connection_error(
+        self, hass: HomeAssistant, mock_entry: MagicMock
+    ) -> None:
+        """Test _async_setup raises UpdateFailed on connection error."""
+        mock_client = AsyncMock()
+        mock_client.get_status = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("Cannot connect")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        with pytest.raises(UpdateFailed, match="Error during coordinator setup"):
+            await coordinator._async_setup()
+
+    @pytest.mark.asyncio
+    async def test_update_data_uses_cached_services(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test _async_update_data uses cached available_services from _async_setup."""
+        from custom_components.adguard_home_extended.api.models import BlockedService
+
+        mock_client.get_all_blocked_services = AsyncMock(
+            return_value=[
+                BlockedService(id="tiktok", name="TikTok"),
+            ]
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        # Run setup to cache services
+        await coordinator._async_setup()
+
+        # Reset the mock to track calls during update
+        mock_client.get_all_blocked_services.reset_mock()
+
+        # Run update
+        data = await coordinator._async_update_data()
+
+        # available_services should come from cache
+        assert data.available_services == [{"id": "tiktok", "name": "TikTok"}]
+
+        # Should NOT have called get_all_blocked_services during update
+        mock_client.get_all_blocked_services.assert_not_called()

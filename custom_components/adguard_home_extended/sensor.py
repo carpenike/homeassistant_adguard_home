@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -11,7 +11,6 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, EntityCategory, UnitOfTime
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -22,9 +21,11 @@ from .const import (
     CONF_ATTR_TOP_ITEMS_LIMIT,
     DEFAULT_ATTR_LIST_LIMIT,
     DEFAULT_ATTR_TOP_ITEMS_LIMIT,
-    DOMAIN,
 )
 from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
+
+if TYPE_CHECKING:
+    from . import AdGuardHomeConfigEntry
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -278,11 +279,11 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: AdGuardHomeConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up AdGuard Home sensors based on a config entry."""
-    coordinator: AdGuardHomeDataUpdateCoordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
 
     async_add_entities(
         AdGuardHomeSensor(coordinator, description) for description in SENSOR_TYPES
