@@ -667,3 +667,30 @@ class TestSensorStateClass:
         sensor = next((d for d in SENSOR_TYPES if d.key == "blocked_percentage"), None)
         assert sensor is not None
         assert sensor.state_class == SensorStateClass.MEASUREMENT
+
+    def test_configuration_sensors_have_no_state_class(self) -> None:
+        """Test that configuration-based sensors do NOT have state_class.
+
+        These sensors represent static configuration values that rarely change.
+        Having state_class would cause Home Assistant to record history and
+        display charts for values like "3 servers" which is not meaningful.
+        """
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        # These sensors represent configuration, not measurements
+        config_sensor_keys = [
+            "upstream_dns_servers",
+            "bootstrap_dns_servers",
+            "dns_cache_size",
+            "dns_rate_limit",
+            "dhcp_static_leases_count",
+            "configured_clients",
+        ]
+
+        for key in config_sensor_keys:
+            sensor = next((d for d in SENSOR_TYPES if d.key == key), None)
+            assert sensor is not None, f"Sensor {key} not found"
+            assert sensor.state_class is None, (
+                f"Sensor {key} should NOT have state_class set "
+                f"(it's a configuration value, not a measurement)"
+            )

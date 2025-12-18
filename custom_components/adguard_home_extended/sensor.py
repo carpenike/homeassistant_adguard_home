@@ -184,7 +184,6 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="dhcp_static_leases_count",
         icon="mdi:ip-network-outline",
         native_unit_of_measurement="leases",
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.dhcp.static_leases) if data.dhcp else 0,
         attributes_fn=lambda data, top_limit, list_limit: (
@@ -229,12 +228,14 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         ),
     ),
     # DNS Configuration sensors
+    # Note: These are configuration values, not measurements, so they don't have
+    # state_class set. This prevents Home Assistant from recording history/charts
+    # for values that rarely change.
     AdGuardHomeSensorEntityDescription(
         key="upstream_dns_servers",
         translation_key="upstream_dns_servers",
         icon="mdi:dns",
         native_unit_of_measurement="servers",
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.dns_info.upstream_dns) if data.dns_info else 0,
         attributes_fn=lambda data, top_limit, list_limit: (
@@ -248,7 +249,6 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="bootstrap_dns_servers",
         icon="mdi:dns-outline",
         native_unit_of_measurement="servers",
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: (
             len(data.dns_info.bootstrap_dns) if data.dns_info else 0
@@ -265,7 +265,6 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         icon="mdi:database",
         native_unit_of_measurement="B",
         device_class=SensorDeviceClass.DATA_SIZE,
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.dns_info.cache_size if data.dns_info else None,
     ),
@@ -274,7 +273,6 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="dns_rate_limit",
         icon="mdi:speedometer",
         native_unit_of_measurement="req/s",
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.dns_info.rate_limit if data.dns_info else None,
     ),
@@ -286,12 +284,12 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         value_fn=lambda data: data.dns_info.blocking_mode if data.dns_info else None,
     ),
     # Configured clients sensor
+    # Note: This is a configuration count, not a measurement that changes frequently
     AdGuardHomeSensorEntityDescription(
         key="configured_clients",
         translation_key="configured_clients",
         icon="mdi:account-group",
         native_unit_of_measurement="clients",
-        state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: len(data.clients) if data.clients else 0,
         attributes_fn=lambda data, top_limit, list_limit: (

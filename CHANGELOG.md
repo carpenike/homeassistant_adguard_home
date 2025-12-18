@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.8] - 2025-12-18
+
+### Fixed
+
+- **Diagnostic sensors recording unnecessary history** - Removed `state_class` from configuration-based sensors (`upstream_dns_servers`, `bootstrap_dns_servers`, `dns_cache_size`, `dns_rate_limit`, `dhcp_static_leases_count`, `configured_clients`) that represent static configuration values. This prevents Home Assistant from recording history/charts for values that rarely change and aren't meaningful to track over time
+
+### Changed
+
+- **Improved DNS cache switch test coverage** - Added separate tests for enabling and disabling DNS cache with JSON payload verification
+
 ## [0.2.7] - 2025-12-18
 
 ### Fixed

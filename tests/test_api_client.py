@@ -871,7 +871,7 @@ class TestAdGuardHomeClient:
     async def test_set_dns_cache_enabled(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test enabling/disabling DNS cache."""
+        """Test enabling DNS cache."""
         mock_response = create_mock_response(json_data=None)
         mock_response.content_length = 0
         mock_session.request.return_value = MockContextManager(mock_response)
@@ -882,6 +882,21 @@ class TestAdGuardHomeClient:
         call_args = mock_session.request.call_args
         assert call_args[0][0] == "POST"
         assert "/control/dns_config" in call_args[0][1]
+        assert call_args[1]["json"] == {"cache_enabled": True}
+
+    @pytest.mark.asyncio
+    async def test_set_dns_cache_disabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test disabling DNS cache."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_dns_cache_enabled(False)
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]["json"] == {"cache_enabled": False}
 
     @pytest.mark.asyncio
     async def test_set_dnssec_enabled(
