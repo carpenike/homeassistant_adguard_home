@@ -241,7 +241,11 @@ class AdGuardBlockedServiceSwitch(
         current_blocked = set(self.coordinator.data.blocked_services)
         current_blocked.add(self._service_id)
 
-        await self.coordinator.client.set_blocked_services(list(current_blocked))
+        # Preserve the existing schedule when updating blocked services
+        schedule = self.coordinator.data.blocked_services_schedule
+        await self.coordinator.client.set_blocked_services(
+            list(current_blocked), schedule
+        )
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -252,5 +256,9 @@ class AdGuardBlockedServiceSwitch(
         current_blocked = set(self.coordinator.data.blocked_services)
         current_blocked.discard(self._service_id)
 
-        await self.coordinator.client.set_blocked_services(list(current_blocked))
+        # Preserve the existing schedule when updating blocked services
+        schedule = self.coordinator.data.blocked_services_schedule
+        await self.coordinator.client.set_blocked_services(
+            list(current_blocked), schedule
+        )
         await self.coordinator.async_request_refresh()

@@ -871,6 +871,94 @@ class TestServiceHandlers:
         mock_coordinator.async_request_refresh.assert_called()
 
     @pytest.mark.asyncio
+    async def test_handle_set_client_blocked_services_preserves_all_fields(
+        self, mock_hass: MagicMock, mock_coordinator: MagicMock
+    ) -> None:
+        """Test handle_set_client_blocked_services preserves all client fields."""
+        from custom_components.adguard_home_extended import _async_setup_services
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient,
+        )
+
+        await _async_setup_services(mock_hass)
+
+        # Setup mock client data with all fields that should be preserved
+        mock_coordinator.data.clients = [
+            {
+                "name": "laptop",
+                "ids": ["192.168.1.100"],
+                "uid": "abc123",
+                "use_global_settings": False,
+                "filtering_enabled": True,
+                "parental_enabled": True,
+                "safebrowsing_enabled": True,
+                "safesearch_enabled": True,
+                "safe_search": {
+                    "enabled": True,
+                    "bing": True,
+                    "duckduckgo": True,
+                    "ecosia": True,
+                    "google": True,
+                    "pixabay": True,
+                    "yandex": True,
+                    "youtube": True,
+                },
+                "use_global_blocked_services": True,
+                "blocked_services": ["youtube"],
+                "blocked_services_schedule": {"time_zone": "America/New_York"},
+                "upstreams": ["https://1.1.1.1/dns-query"],
+                "tags": ["device_laptop"],
+                "upstreams_cache_enabled": True,
+                "upstreams_cache_size": 4096,
+                "ignore_querylog": True,
+                "ignore_statistics": True,
+            }
+        ]
+
+        calls = mock_hass.services.async_register.call_args_list
+        handler = None
+        for call in calls:
+            if call[0][1] == "set_client_blocked_services":
+                handler = call[0][2]
+                break
+
+        service_call = MagicMock(spec=ServiceCall)
+        service_call.data = {
+            "client_name": "laptop",
+            "services": ["facebook", "tiktok"],
+        }
+
+        await handler(service_call)
+
+        # Verify update_client was called with preserved fields
+        mock_coordinator.client.update_client.assert_called_once()
+        call_args = mock_coordinator.client.update_client.call_args
+        client_arg: AdGuardHomeClient = call_args[0][1]
+
+        # Verify the blocked services were updated
+        assert client_arg.blocked_services == ["facebook", "tiktok"]
+        assert client_arg.use_global_blocked_services is False
+
+        # Verify all other fields were preserved
+        assert client_arg.name == "laptop"
+        assert client_arg.ids == ["192.168.1.100"]
+        assert client_arg.uid == "abc123"
+        assert client_arg.use_global_settings is False
+        assert client_arg.filtering_enabled is True
+        assert client_arg.parental_enabled is True
+        assert client_arg.safebrowsing_enabled is True
+        assert client_arg.safesearch_enabled is True
+        assert client_arg.safe_search is not None
+        assert client_arg.safe_search.enabled is True
+        assert client_arg.blocked_services_schedule == {"time_zone": "America/New_York"}
+        assert client_arg.upstreams == ["https://1.1.1.1/dns-query"]
+        assert client_arg.tags == ["device_laptop"]
+        assert client_arg.upstreams_cache_enabled is True
+        assert client_arg.upstreams_cache_size == 4096
+        assert client_arg.ignore_querylog is True
+        assert client_arg.ignore_statistics is True
+
+    @pytest.mark.asyncio
     async def test_handle_set_client_blocked_services_client_not_found(
         self, mock_hass: MagicMock, mock_coordinator: MagicMock
     ) -> None:

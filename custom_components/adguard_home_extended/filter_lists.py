@@ -120,6 +120,7 @@ class FilterListSwitch(
             url=self._filter_url,
             enabled=True,
             whitelist=self._whitelist,
+            name=self._filter_name,
         )
         await self.coordinator.async_request_refresh()
 
@@ -129,6 +130,7 @@ class FilterListSwitch(
             url=self._filter_url,
             enabled=False,
             whitelist=self._whitelist,
+            name=self._filter_name,
         )
         await self.coordinator.async_request_refresh()
 

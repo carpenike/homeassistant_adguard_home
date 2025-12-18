@@ -236,7 +236,7 @@ class AdGuardHomeClient:
     blocked_services_schedule: dict[str, Any] | None = None  # v0.107.37+
     upstreams: list[str] = field(default_factory=list)  # Custom DNS upstreams
     tags: list[str] = field(default_factory=list)
-    upstreams_cache_enabled: bool = True
+    upstreams_cache_enabled: bool = False  # Default per OpenAPI spec
     upstreams_cache_size: int = 0
     ignore_querylog: bool = False
     ignore_statistics: bool = False
@@ -265,7 +265,7 @@ class AdGuardHomeClient:
             blocked_services_schedule=data.get("blocked_services_schedule"),
             upstreams=data.get("upstreams") or [],
             tags=data.get("tags") or [],
-            upstreams_cache_enabled=data.get("upstreams_cache_enabled", True),
+            upstreams_cache_enabled=data.get("upstreams_cache_enabled", False),
             upstreams_cache_size=data.get("upstreams_cache_size", 0),
             ignore_querylog=data.get("ignore_querylog", False),
             ignore_statistics=data.get("ignore_statistics", False),

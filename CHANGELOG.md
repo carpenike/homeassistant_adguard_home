@@ -12,6 +12,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Per-client settings wiped on toggle** - When toggling per-client switches (filtering, parental, etc.), the `blocked_services_schedule`, `safe_search`, `upstreams`, `ignore_querylog`, and `ignore_statistics` fields were not being preserved. Now all client settings are properly retained when updating any individual setting
+- **Filter list names wiped when toggling** - The `set_filter_enabled` API call was missing the required `name` field per the `FilterSetUrlData` schema, causing filter names to be set to empty string when enabling/disabling filter lists
+- **Global blocked services schedule wiped on toggle** - When toggling individual blocked service switches, the `blocked_services_schedule` was not being passed to the API, potentially wiping time-based schedules
+- **`set_client_blocked_services` service wiped client settings** - The service handler was not preserving `safe_search`, `upstreams`, `blocked_services_schedule`, `upstreams_cache_enabled`, `upstreams_cache_size`, `ignore_querylog`, and `ignore_statistics` fields when updating a client's blocked services
 
 ### Added
 
@@ -19,7 +22,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `safe_search` field to `AdGuardHomeClient` model - Supports the new safe search settings object (v0.107.52+) with per-engine toggles
 - `upstreams` field to `AdGuardHomeClient` model - Preserves per-client custom DNS upstream servers
 - `ignore_querylog` and `ignore_statistics` fields to `AdGuardHomeClient` model - Preserves privacy settings for individual clients
+- `upstreams_cache_enabled` and `upstreams_cache_size` fields to client API methods - Preserves per-client upstream cache settings
+- Optional `name` parameter to `set_filter_enabled()` API method - Allows preserving filter names when toggling
 - Tests for new client fields including schedule preservation, safe_search object, and upstreams
+- Tests for filter name preservation on toggle
+- Tests for blocked services schedule preservation on toggle
 
 ## [0.2.6] - 2025-12-18
 

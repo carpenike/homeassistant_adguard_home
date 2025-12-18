@@ -2309,3 +2309,53 @@ class TestApiClientAdditionalMethods:
         assert json_data["data"]["upstreams"] == [
             "https://family.cloudflare-dns.com/dns-query"
         ]
+
+    async def test_update_client_with_upstreams_cache(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test update_client includes upstreams_cache_enabled and upstreams_cache_size."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        updated_client = ClientConfig(
+            name="Cached Client",
+            ids=["192.168.1.150"],
+            upstreams=["https://dns.google/dns-query"],
+            upstreams_cache_enabled=True,
+            upstreams_cache_size=8192,
+        )
+        await client.update_client("Cached Client", updated_client)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        assert json_data["data"]["upstreams_cache_enabled"] is True
+        assert json_data["data"]["upstreams_cache_size"] == 8192
+
+    async def test_add_client_with_upstreams_cache(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test add_client includes upstreams_cache_enabled and upstreams_cache_size."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        new_client = ClientConfig(
+            name="New Cached Client",
+            ids=["192.168.1.160"],
+            upstreams=["https://dns.google/dns-query"],
+            upstreams_cache_enabled=True,
+            upstreams_cache_size=4096,
+        )
+        await client.add_client(new_client)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        assert json_data["upstreams_cache_enabled"] is True
+        assert json_data["upstreams_cache_size"] == 4096

@@ -205,6 +205,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
     async def handle_set_client_blocked_services(call: ServiceCall) -> None:
         """Handle the set_client_blocked_services service call."""
         from .api.models import AdGuardHomeClient as ClientConfig
+        from .api.models import SafeSearchSettings
 
         coordinator = _get_coordinator(hass, call.data.get(ATTR_ENTRY_ID))
         client_name = call.data[ATTR_CLIENT_NAME]
@@ -216,18 +217,40 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
 
         for client_data in coordinator.data.clients:
             if client_data.get("name") == client_name:
-                # Build updated client config with new blocked services
+                # Parse safe_search from client data if present
+                safe_search_data = client_data.get("safe_search")
+                safe_search = (
+                    SafeSearchSettings.from_dict(safe_search_data)
+                    if safe_search_data
+                    else None
+                )
+
+                # Build updated client config, preserving all existing values
+                # Only change use_global_blocked_services and blocked_services
                 updated_client = ClientConfig(
                     name=client_data.get("name", ""),
                     ids=client_data.get("ids", []),
+                    uid=client_data.get("uid", ""),
                     use_global_settings=client_data.get("use_global_settings", True),
                     filtering_enabled=client_data.get("filtering_enabled", True),
                     parental_enabled=client_data.get("parental_enabled", False),
                     safebrowsing_enabled=client_data.get("safebrowsing_enabled", False),
                     safesearch_enabled=client_data.get("safesearch_enabled", False),
+                    safe_search=safe_search,
                     use_global_blocked_services=False,  # Disable global when setting per-client
                     blocked_services=services,
-                    tags=client_data.get("tags", []),
+                    # Preserve the existing schedule
+                    blocked_services_schedule=client_data.get(
+                        "blocked_services_schedule"
+                    ),
+                    upstreams=client_data.get("upstreams") or [],
+                    tags=client_data.get("tags") or [],
+                    upstreams_cache_enabled=client_data.get(
+                        "upstreams_cache_enabled", False
+                    ),
+                    upstreams_cache_size=client_data.get("upstreams_cache_size", 0),
+                    ignore_querylog=client_data.get("ignore_querylog", False),
+                    ignore_statistics=client_data.get("ignore_statistics", False),
                 )
                 await coordinator.client.update_client(client_name, updated_client)
                 await coordinator.async_request_refresh()

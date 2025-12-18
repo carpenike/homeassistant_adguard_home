@@ -210,6 +210,66 @@ class TestBlockedServiceSwitch:
         assert "tiktok" in call_args  # still blocked
         mock_coordinator.async_request_refresh.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_turn_on_preserves_schedule(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turning on preserves the blocked services schedule."""
+        # Set up a schedule on the coordinator
+        mock_coordinator.data.blocked_services_schedule = {
+            "time_zone": "America/New_York",
+            "mon": [{"start": "09:00", "end": "17:00"}],
+            "tue": [{"start": "09:00", "end": "17:00"}],
+        }
+        switch = AdGuardBlockedServiceSwitch(
+            coordinator=mock_coordinator,
+            service_id="youtube",
+            service_name="YouTube",
+        )
+
+        await switch.async_turn_on()
+
+        # Should pass the schedule as the second argument
+        mock_coordinator.client.set_blocked_services.assert_called_once()
+        call_args = mock_coordinator.client.set_blocked_services.call_args
+        # First positional arg is the services list
+        services = call_args[0][0]
+        assert "youtube" in services
+        # Second positional arg is the schedule
+        schedule = call_args[0][1]
+        assert schedule["time_zone"] == "America/New_York"
+        assert "mon" in schedule
+        assert "tue" in schedule
+
+    @pytest.mark.asyncio
+    async def test_turn_off_preserves_schedule(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turning off preserves the blocked services schedule."""
+        # Set up a schedule on the coordinator
+        mock_coordinator.data.blocked_services_schedule = {
+            "time_zone": "Europe/London",
+            "wed": [{"start": "22:00", "end": "06:00"}],
+        }
+        switch = AdGuardBlockedServiceSwitch(
+            coordinator=mock_coordinator,
+            service_id="facebook",
+            service_name="Facebook",
+        )
+
+        await switch.async_turn_off()
+
+        # Should pass the schedule as the second argument
+        mock_coordinator.client.set_blocked_services.assert_called_once()
+        call_args = mock_coordinator.client.set_blocked_services.call_args
+        # First positional arg is the services list
+        services = call_args[0][0]
+        assert "facebook" not in services
+        # Second positional arg is the schedule
+        schedule = call_args[0][1]
+        assert schedule["time_zone"] == "Europe/London"
+        assert "wed" in schedule
+
     def test_switch_none_data(self, mock_coordinator: MagicMock) -> None:
         """Test switch with None data."""
         mock_coordinator.data = None

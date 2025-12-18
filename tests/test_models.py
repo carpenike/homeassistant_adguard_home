@@ -373,7 +373,7 @@ class TestClientConfig:
         assert client.blocked_services_schedule is None
         assert client.upstreams == []
         assert client.safe_search is None
-        assert client.upstreams_cache_enabled is True
+        assert client.upstreams_cache_enabled is False  # Default per OpenAPI spec
         assert client.upstreams_cache_size == 0
         assert client.ignore_querylog is False
         assert client.ignore_statistics is False

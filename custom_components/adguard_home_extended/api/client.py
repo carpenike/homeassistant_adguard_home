@@ -356,6 +356,7 @@ class AdGuardHomeClient:
         url: str,
         enabled: bool,
         whitelist: bool = False,
+        name: str | None = None,
     ) -> None:
         """Enable or disable a filter list.
 
@@ -363,15 +364,22 @@ class AdGuardHomeClient:
             url: The URL of the filter list to modify.
             enabled: Whether the filter should be enabled.
             whitelist: Whether this is a whitelist filter (default False).
+            name: The name of the filter list. Required by the API to preserve
+                  the filter name. If not provided, the filter name will be lost.
         """
+        data: dict[str, Any] = {
+            "enabled": enabled,
+            "url": url,
+        }
+        # Include name if provided to preserve filter name (required by API)
+        if name is not None:
+            data["name"] = name
+
         await self._post(
             API_FILTERING_SET_URL,
             {
                 "url": url,
-                "data": {
-                    "enabled": enabled,
-                    "url": url,
-                },
+                "data": data,
                 "whitelist": whitelist,
             },
         )
@@ -452,6 +460,8 @@ class AdGuardHomeClient:
             "tags": client.tags or [],
             "ignore_querylog": client.ignore_querylog,
             "ignore_statistics": client.ignore_statistics,
+            "upstreams_cache_enabled": client.upstreams_cache_enabled,
+            "upstreams_cache_size": client.upstreams_cache_size,
         }
 
         # Handle safe_search (v0.107.52+) - prefer safe_search over deprecated safesearch_enabled
@@ -503,6 +513,8 @@ class AdGuardHomeClient:
             "tags": client.tags or [],
             "ignore_querylog": client.ignore_querylog,
             "ignore_statistics": client.ignore_statistics,
+            "upstreams_cache_enabled": client.upstreams_cache_enabled,
+            "upstreams_cache_size": client.upstreams_cache_size,
         }
 
         # Handle safe_search (v0.107.52+) - prefer safe_search over deprecated safesearch_enabled

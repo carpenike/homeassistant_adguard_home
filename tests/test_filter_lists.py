@@ -210,6 +210,7 @@ class TestFilterListSwitch:
             url="https://example.com/adblock.txt",
             enabled=True,
             whitelist=False,
+            name="Example Adblock",
         )
         mock_coordinator.async_request_refresh.assert_called_once()
 
@@ -230,6 +231,7 @@ class TestFilterListSwitch:
             url="https://example.com/adblock.txt",
             enabled=False,
             whitelist=False,
+            name="Example Adblock",
         )
         mock_coordinator.async_request_refresh.assert_called_once()
 
@@ -250,6 +252,7 @@ class TestFilterListSwitch:
             url="https://example.com/whitelist.txt",
             enabled=True,
             whitelist=True,
+            name="Whitelist",
         )
 
 
@@ -284,6 +287,37 @@ class TestSetFilterEnabledApi:
             assert call_args[0][1]["url"] == "https://example.com/filter.txt"
             assert call_args[0][1]["data"]["enabled"] is True
             assert call_args[0][1]["whitelist"] is False
+            # Without name parameter, name should not be in data
+            assert "name" not in call_args[0][1]["data"]
+
+    @pytest.mark.asyncio
+    async def test_set_filter_enabled_with_name(self) -> None:
+        """Test enabling a filter via API with name parameter."""
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from custom_components.adguard_home_extended.api.client import AdGuardHomeClient
+
+        with patch.object(
+            AdGuardHomeClient, "_post", new_callable=AsyncMock
+        ) as mock_post:
+            client = AdGuardHomeClient(
+                host="192.168.1.1",
+                port=3000,
+                session=MagicMock(),
+            )
+
+            await client.set_filter_enabled(
+                url="https://example.com/filter.txt",
+                enabled=True,
+                whitelist=False,
+                name="My Filter List",
+            )
+
+            mock_post.assert_called_once()
+            call_args = mock_post.call_args
+            assert call_args[0][1]["data"]["name"] == "My Filter List"
+            assert call_args[0][1]["data"]["enabled"] is True
+            assert call_args[0][1]["data"]["url"] == "https://example.com/filter.txt"
 
     @pytest.mark.asyncio
     async def test_set_whitelist_filter_disabled(self) -> None:

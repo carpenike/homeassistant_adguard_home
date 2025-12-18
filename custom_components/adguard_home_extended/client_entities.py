@@ -198,7 +198,7 @@ class AdGuardClientBaseSwitch(
             blocked_services_schedule=client_data.get("blocked_services_schedule"),
             upstreams=client_data.get("upstreams") or [],
             tags=client_data.get("tags") or [],
-            upstreams_cache_enabled=client_data.get("upstreams_cache_enabled", True),
+            upstreams_cache_enabled=client_data.get("upstreams_cache_enabled", False),
             upstreams_cache_size=client_data.get("upstreams_cache_size", 0),
             ignore_querylog=client_data.get("ignore_querylog", False),
             ignore_statistics=client_data.get("ignore_statistics", False),
