@@ -1230,6 +1230,71 @@ class TestClientEntityManager:
         assert client_names == {"Client1", "Client2"}
 
     @pytest.mark.asyncio
+    async def test_icon_svg_passed_to_entities(
+        self,
+    ) -> None:
+        """Test that icon_svg from available_services is passed to entities."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "TestClient",
+                "ids": ["192.168.1.100"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": False,
+                "blocked_services": ["facebook"],
+                "tags": [],
+            },
+        ]
+        # Include icon_svg in available_services
+        coordinator.data.available_services = [
+            {
+                "id": "facebook",
+                "name": "Facebook",
+                "icon_svg": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCI+PHJlY3QgZmlsbD0iIzE4NzdmMiIvPjwvc3ZnPg==",
+                "group_id": "social_network",
+            },
+        ]
+        coordinator.hass = MagicMock()
+        coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+        coordinator.last_update_success = True
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(coordinator, async_add_entities)
+        await manager.async_setup()
+
+        assert async_add_entities.call_count == 1
+        entities = async_add_entities.call_args[0][0]
+
+        # Find the blocked service entity
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientBlockedServiceSwitch,
+        )
+
+        blocked_service_entities = [
+            e for e in entities if isinstance(e, AdGuardClientBlockedServiceSwitch)
+        ]
+        assert len(blocked_service_entities) == 1
+
+        fb_entity = blocked_service_entities[0]
+        assert fb_entity._service_id == "facebook"
+        # Verify icon_svg was passed and entity_picture returns the data URL
+        assert fb_entity._icon_svg != ""
+        assert fb_entity.entity_picture is not None
+        assert fb_entity.entity_picture.startswith("data:image/svg+xml;base64,")
+        # Verify no MDI icon is set when icon_svg is present
+        assert fb_entity._attr_icon == ""
+
+    @pytest.mark.asyncio
     async def test_empty_available_services_list(
         self,
     ) -> None:

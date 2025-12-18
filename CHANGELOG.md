@@ -7,13 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.2] - 2025-12-18
+
+### Fixed
+
+- **Blocked service icons not appearing for dynamically added clients** - The `ClientEntityManager._async_add_new_client_entities()` method was not passing `icon_svg` to `AdGuardClientBlockedServiceSwitch` entities, causing them to always fall back to MDI icons instead of using AdGuard Home's native SVG icons
+
+### Added
+
+- New test `test_icon_svg_passed_to_entities` verifying `ClientEntityManager` correctly passes `icon_svg` to entities
+
 ## [0.3.1] - 2025-12-18
 
 ### Added
 
 - **Blocked service icons from AdGuard Home** - Blocked service switches now display AdGuard Home's native SVG icons via the `entity_picture` property. The icons are fetched from the `/control/blocked_services/all` API endpoint and rendered as data URLs (`data:image/svg+xml;base64,...`). Falls back to MDI category icons when SVG is unavailable
-- New tests for `entity_picture` functionality on blocked service switches (7 new tests)
-- New integration tests verifying `icon_svg` is passed through entity creation (`test_setup_entry_passes_icon_svg_to_entities`, `test_create_entities_passes_icon_svg`)
+- New tests for `entity_picture` functionality on blocked service switches
 
 ### Changed
 

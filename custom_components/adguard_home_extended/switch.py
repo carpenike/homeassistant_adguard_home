@@ -263,6 +263,7 @@ class ClientEntityManager:
                             client_name=client.name,
                             service_id=service["id"],
                             service_name=service["name"],
+                            icon_svg=service.get("icon_svg", ""),
                         )
                     )
 
