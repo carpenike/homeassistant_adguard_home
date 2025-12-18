@@ -1,0 +1,43 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits"
+  ],
+  "labels": ["dependencies"],
+  "timezone": "America/New_York",
+  "schedule": ["before 6am on monday"],
+  "pre-commit": {
+    "enabled": true
+  },
+  "packageRules": [
+    {
+      "description": "GitHub Actions - automerge minor/patch",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "labels": ["dependencies", "github-actions"],
+      "automerge": true,
+      "matchUpdateTypes": ["minor", "patch", "digest"]
+    },
+    {
+      "description": "Python dependencies from pyproject.toml",
+      "matchManagers": ["pep621"],
+      "groupName": "Python dependencies",
+      "labels": ["dependencies", "python"]
+    },
+    {
+      "description": "Pre-commit hooks - automerge",
+      "matchManagers": ["pre-commit"],
+      "groupName": "pre-commit hooks",
+      "labels": ["dependencies", "pre-commit"],
+      "automerge": true
+    },
+    {
+      "description": "Home Assistant - never automerge, may have breaking changes",
+      "matchPackageNames": ["homeassistant"],
+      "labels": ["dependencies", "python", "home-assistant"],
+      "automerge": false
+    }
+  ]
+}

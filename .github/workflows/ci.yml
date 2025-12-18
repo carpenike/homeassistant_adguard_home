@@ -7,6 +7,12 @@ on:
   pull_request:
     branches:
       - main
+  schedule:
+    # Run daily at midnight to catch compatibility issues with new HA releases
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions: {}
 
 jobs:
   test:
