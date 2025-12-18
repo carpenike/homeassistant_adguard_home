@@ -143,6 +143,63 @@ class TestCreateClientEntities:
         entities = await create_client_entities(hass, entry, coordinator)
         assert len(entities) == 0
 
+    @pytest.mark.asyncio
+    async def test_create_entities_passes_icon_svg(self) -> None:
+        """Test that icon_svg is passed through to client blocked service entities."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Test Client",
+                "ids": ["192.168.1.100"],
+                "use_global_settings": False,
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_blocked_services": False,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        # Include icon_svg in available_services
+        coordinator.data.available_services = [
+            {"id": "facebook", "name": "Facebook", "icon_svg": "PHN2Zy8+"},
+            {"id": "youtube", "name": "YouTube", "icon_svg": ""},
+        ]
+        coordinator.client = AsyncMock()
+
+        hass = MagicMock()
+        entry = MagicMock()
+
+        entities = await create_client_entities(hass, entry, coordinator)
+
+        # Find blocked service switches
+        blocked_service_switches = [
+            e for e in entities if isinstance(e, AdGuardClientBlockedServiceSwitch)
+        ]
+        assert len(blocked_service_switches) == 2
+
+        # Find the Facebook switch (with SVG icon)
+        facebook_switch = next(
+            e for e in blocked_service_switches if e._service_id == "facebook"
+        )
+        assert facebook_switch._icon_svg == "PHN2Zy8+"
+        assert facebook_switch.entity_picture == "data:image/svg+xml;base64,PHN2Zy8+"
+        # Should NOT have MDI icon when SVG is provided
+        assert facebook_switch.icon == ""
+
+        # Find the YouTube switch (without SVG icon)
+        youtube_switch = next(
+            e for e in blocked_service_switches if e._service_id == "youtube"
+        )
+        assert youtube_switch._icon_svg == ""
+        assert youtube_switch.entity_picture is None
+        # Should have MDI fallback icon
+        assert youtube_switch.icon == "mdi:video"
+
 
 class TestClientFilteringSwitch:
     """Tests for AdGuardClientFilteringSwitch."""
@@ -1490,3 +1547,43 @@ class TestClientBlockedServiceSwitch:
             mock_coordinator, "Kids Tablet", "tiktok", "TikTok"
         )
         assert switch.icon == "mdi:account-group"
+
+    def test_entity_picture_with_svg_icon(self, mock_coordinator: MagicMock) -> None:
+        """Test entity_picture returns data URL when icon_svg is provided."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator,
+            "Kids Tablet",
+            "facebook",
+            "Facebook",
+            icon_svg="PHN2Zy8+",  # Base64-encoded SVG
+        )
+
+        assert switch.entity_picture == "data:image/svg+xml;base64,PHN2Zy8+"
+        # Icon should be empty string when SVG is provided
+        assert switch.icon == ""
+
+    def test_entity_picture_none_when_no_svg_icon(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test entity_picture returns None when no icon_svg is provided."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "facebook", "Facebook"
+        )
+
+        assert switch.entity_picture is None
+        # Should have MDI icon when no SVG
+        assert switch.icon == "mdi:account-group"
+
+    def test_entity_picture_empty_string_svg(self, mock_coordinator: MagicMock) -> None:
+        """Test entity_picture returns None when icon_svg is empty string."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator,
+            "Kids Tablet",
+            "unknown_service",
+            "Unknown",
+            icon_svg="",
+        )
+
+        assert switch.entity_picture is None
+        # Should fall back to MDI icon
+        assert switch.icon == "mdi:block-helper"

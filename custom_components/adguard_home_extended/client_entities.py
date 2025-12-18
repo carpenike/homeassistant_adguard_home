@@ -69,6 +69,7 @@ async def create_client_entities(
                             client_name=client.name,
                             service_id=service["id"],
                             service_name=service["name"],
+                            icon_svg=service.get("icon_svg", ""),
                         )
                     )
 
@@ -424,16 +425,20 @@ class AdGuardClientBlockedServiceSwitch(AdGuardClientBaseSwitch):
         client_name: str,
         service_id: str,
         service_name: str,
+        icon_svg: str = "",
     ) -> None:
         """Initialize the per-client blocked service switch."""
+        # Only use MDI icon as fallback if no SVG icon from AdGuard Home
+        fallback_icon = "" if icon_svg else self._get_service_icon(service_id)
         super().__init__(
             coordinator,
             client_name,
             f"block_{service_id}",
-            self._get_service_icon(service_id),
+            fallback_icon,
         )
         self._service_id = service_id
         self._service_name = service_name
+        self._icon_svg = icon_svg
         self._attr_entity_category = EntityCategory.CONFIG
 
     @staticmethod
@@ -444,6 +449,14 @@ class AdGuardClientBlockedServiceSwitch(AdGuardClientBaseSwitch):
                 icon = category_data["icon"]
                 return str(icon)
         return "mdi:block-helper"
+
+    @property
+    def entity_picture(self) -> str | None:
+        """Return the entity picture (AdGuard Home's SVG icon as data URL)."""
+        if self._icon_svg:
+            # The icon_svg from AdGuard Home is already Base64-encoded
+            return f"data:image/svg+xml;base64,{self._icon_svg}"
+        return None
 
     @property
     def name(self) -> str:

@@ -116,7 +116,13 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
             # This only changes when AdGuard Home is upgraded
             services = await self.client.get_all_blocked_services()
             self._available_services = [
-                {"id": svc.id, "name": svc.name} for svc in services
+                {
+                    "id": svc.id,
+                    "name": svc.name,
+                    "icon_svg": svc.icon_svg,
+                    "group_id": svc.group_id,
+                }
+                for svc in services
             ]
             _LOGGER.debug(
                 "Loaded %d available blocked services", len(self._available_services)

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.1] - 2025-12-18
+
+### Added
+
+- **Blocked service icons from AdGuard Home** - Blocked service switches now display AdGuard Home's native SVG icons via the `entity_picture` property. The icons are fetched from the `/control/blocked_services/all` API endpoint and rendered as data URLs (`data:image/svg+xml;base64,...`). Falls back to MDI category icons when SVG is unavailable
+- New tests for `entity_picture` functionality on blocked service switches (7 new tests)
+- New integration tests verifying `icon_svg` is passed through entity creation (`test_setup_entry_passes_icon_svg_to_entities`, `test_create_entities_passes_icon_svg`)
+
+### Changed
+
+- Coordinator now caches `icon_svg` and `group_id` fields from `BlockedService` objects in `available_services`
+
 ## [0.3.0] - 2025-12-18
 
 ### Fixed

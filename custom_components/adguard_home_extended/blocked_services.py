@@ -156,6 +156,7 @@ async def async_setup_entry(
                     coordinator=coordinator,
                     service_id=service["id"],
                     service_name=service["name"],
+                    icon_svg=service.get("icon_svg", ""),
                 )
             )
 
@@ -175,19 +176,22 @@ class AdGuardBlockedServiceSwitch(
         coordinator: AdGuardHomeDataUpdateCoordinator,
         service_id: str,
         service_name: str,
+        icon_svg: str = "",
     ) -> None:
         """Initialize the blocked service switch."""
         super().__init__(coordinator)
         self._service_id = service_id
         self._service_name = service_name
+        self._icon_svg = icon_svg
         self._attr_unique_id = (
             f"{coordinator.config_entry.entry_id}_blocked_{service_id}"
         )
         self._attr_translation_key = "blocked_service"
         self._attr_translation_placeholders = {"service_name": service_name}
 
-        # Find icon based on category
-        self._attr_icon = self._get_service_icon(service_id)
+        # Only use MDI icon as fallback if no SVG icon from AdGuard Home
+        if not icon_svg:
+            self._attr_icon = self._get_service_icon(service_id)
 
     def _get_service_icon(self, service_id: str) -> str:
         """Get the icon for a service based on its category."""
@@ -196,6 +200,14 @@ class AdGuardBlockedServiceSwitch(
                 icon = category_data["icon"]
                 return str(icon)
         return "mdi:block-helper"
+
+    @property
+    def entity_picture(self) -> str | None:
+        """Return the entity picture (AdGuard Home's SVG icon as data URL)."""
+        if self._icon_svg:
+            # The icon_svg from AdGuard Home is already Base64-encoded
+            return f"data:image/svg+xml;base64,{self._icon_svg}"
+        return None
 
     @property
     def name(self) -> str:

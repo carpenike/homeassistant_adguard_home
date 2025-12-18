@@ -523,7 +523,12 @@ class TestAdGuardHomeDataUpdateCoordinator:
 
         mock_client.get_all_blocked_services = AsyncMock(
             return_value=[
-                BlockedService(id="tiktok", name="TikTok"),
+                BlockedService(
+                    id="tiktok",
+                    name="TikTok",
+                    icon_svg="PHN2Zy8+",  # Base64-encoded SVG
+                    group_id="social_network",
+                ),
             ]
         )
 
@@ -538,8 +543,15 @@ class TestAdGuardHomeDataUpdateCoordinator:
         # Run update
         data = await coordinator._async_update_data()
 
-        # available_services should come from cache
-        assert data.available_services == [{"id": "tiktok", "name": "TikTok"}]
+        # available_services should come from cache including icon_svg and group_id
+        assert data.available_services == [
+            {
+                "id": "tiktok",
+                "name": "TikTok",
+                "icon_svg": "PHN2Zy8+",
+                "group_id": "social_network",
+            }
+        ]
 
         # Should NOT have called get_all_blocked_services during update
         mock_client.get_all_blocked_services.assert_not_called()

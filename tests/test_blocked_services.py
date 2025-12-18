@@ -161,6 +161,46 @@ class TestBlockedServiceSwitch:
 
         assert switch._attr_icon == "mdi:block-helper"
 
+    def test_entity_picture_with_svg_icon(self, mock_coordinator: MagicMock) -> None:
+        """Test entity_picture returns data URL when icon_svg is provided."""
+        switch = AdGuardBlockedServiceSwitch(
+            coordinator=mock_coordinator,
+            service_id="facebook",
+            service_name="Facebook",
+            icon_svg="PHN2Zy8+",  # Base64-encoded SVG
+        )
+
+        assert switch.entity_picture == "data:image/svg+xml;base64,PHN2Zy8+"
+        # Should NOT have MDI icon when SVG is provided
+        assert not hasattr(switch, "_attr_icon") or switch._attr_icon is None
+
+    def test_entity_picture_none_when_no_svg_icon(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test entity_picture returns None when no icon_svg is provided."""
+        switch = AdGuardBlockedServiceSwitch(
+            coordinator=mock_coordinator,
+            service_id="facebook",
+            service_name="Facebook",
+        )
+
+        assert switch.entity_picture is None
+        # Should have MDI icon when no SVG
+        assert switch._attr_icon == "mdi:account-group"
+
+    def test_entity_picture_empty_string_svg(self, mock_coordinator: MagicMock) -> None:
+        """Test entity_picture returns None when icon_svg is empty string."""
+        switch = AdGuardBlockedServiceSwitch(
+            coordinator=mock_coordinator,
+            service_id="unknown_service",
+            service_name="Unknown",
+            icon_svg="",
+        )
+
+        assert switch.entity_picture is None
+        # Should fall back to MDI icon
+        assert switch._attr_icon == "mdi:block-helper"
+
     def test_extra_state_attributes(self, mock_coordinator: MagicMock) -> None:
         """Test switch extra state attributes."""
         switch = AdGuardBlockedServiceSwitch(
@@ -389,3 +429,38 @@ class TestAsyncSetupEntry:
 
         # Should have called async_config_entry_first_refresh
         coordinator.async_config_entry_first_refresh.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_setup_entry_passes_icon_svg_to_entities(self) -> None:
+        """Test setup entry passes icon_svg from available_services to entities."""
+        coordinator = MagicMock()
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.available_services = [
+            {"id": "facebook", "name": "Facebook", "icon_svg": "PHN2Zy8+"},
+            {"id": "youtube", "name": "YouTube", "icon_svg": ""},
+        ]
+        coordinator.data.blocked_services = []
+
+        entry = MagicMock()
+        entry.runtime_data = coordinator
+
+        async_add_entities = MagicMock()
+
+        await async_setup_entry(MagicMock(), entry, async_add_entities)
+
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 2
+
+        # First entity should have icon_svg and entity_picture
+        facebook_entity = entities[0]
+        assert facebook_entity._icon_svg == "PHN2Zy8+"
+        assert facebook_entity.entity_picture == "data:image/svg+xml;base64,PHN2Zy8+"
+        # Should NOT have MDI icon when SVG is provided
+        assert not hasattr(facebook_entity, "_attr_icon")
+
+        # Second entity should NOT have icon_svg, but should have MDI fallback
+        youtube_entity = entities[1]
+        assert youtube_entity._icon_svg == ""
+        assert youtube_entity.entity_picture is None
+        # Should have MDI icon when no SVG
+        assert youtube_entity._attr_icon == "mdi:video"
