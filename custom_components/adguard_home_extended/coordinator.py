@@ -35,7 +35,7 @@ from .const import (
 )
 from .version import AdGuardHomeVersion, parse_version
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)

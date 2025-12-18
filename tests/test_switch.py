@@ -1,13 +1,14 @@
 """Tests for the AdGuard Home Extended switch platform."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from custom_components.adguard_home_extended.api.models import (
     AdGuardHomeStatus,
     DnsInfo,
+    DnsRewrite,
     FilteringStatus,
 )
 from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
@@ -570,6 +571,26 @@ class TestDnsRewriteSwitch:
         assert switch.available is False
         assert switch.is_on is None
 
+    def test_dns_rewrite_switch_data_is_none(self) -> None:
+        """Test DNS rewrite switch when coordinator.data is None."""
+        from unittest.mock import MagicMock
+
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+        coordinator.data = None
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        # _get_rewrite_data should return None when data is None
+        assert switch._get_rewrite_data() is None
+        assert switch.is_on is None
+        assert switch.available is False
+
     @pytest.mark.asyncio
     async def test_dns_rewrite_switch_turn_on(self) -> None:
         """Test DNS rewrite switch turn_on."""
@@ -740,3 +761,578 @@ class TestQueryLoggingAndStatsSwitch:
         await desc.turn_off_fn(mock_client)
 
         mock_client.set_stats_config.assert_called_once_with(enabled=False)
+
+
+class TestAsyncSetupEntry:
+    """Tests for async_setup_entry."""
+
+    @pytest.mark.asyncio
+    async def test_async_setup_entry_creates_switches(self) -> None:
+        """Test that async_setup_entry creates all switch entities."""
+        from custom_components.adguard_home_extended.switch import async_setup_entry
+
+        # Mock Home Assistant
+        mock_hass = MagicMock()
+        mock_hass.data = {}
+
+        # Mock config entry
+        mock_entry = MagicMock()
+        mock_entry.entry_id = "test_entry_123"
+
+        # Mock coordinator with data
+        mock_coordinator = MagicMock()
+        mock_coordinator.data = AdGuardHomeData()
+        mock_coordinator.data.clients = []
+        mock_coordinator.data.rewrites = []
+        mock_coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+        mock_entry.runtime_data = mock_coordinator
+
+        # Track added entities
+        added_entities = []
+
+        def capture_entities(entities):
+            added_entities.extend(entities)
+
+        mock_async_add_entities = MagicMock(side_effect=capture_entities)
+
+        # Patch filter manager in filter_lists module where it's defined
+        with patch(
+            "custom_components.adguard_home_extended.filter_lists.FilterListEntityManager"
+        ) as mock_filter_manager:
+            mock_filter_manager.return_value.async_setup = AsyncMock()
+            await async_setup_entry(mock_hass, mock_entry, mock_async_add_entities)
+
+        # Should have created 10 global switches
+        assert len(added_entities) == 10
+        # Verify managers are stored
+        assert "client_managers" in mock_hass.data["adguard_home_extended"]
+        assert "rewrite_managers" in mock_hass.data["adguard_home_extended"]
+
+
+class TestAdGuardHomeSwitch:
+    """Tests for AdGuardHomeSwitch entity."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {"identifiers": {("adguard_home_extended", "test")}}
+        coordinator.data = AdGuardHomeData()
+        coordinator.client = MagicMock()
+        coordinator.async_request_refresh = AsyncMock()
+        return coordinator
+
+    def test_switch_initialization(self, mock_coordinator: MagicMock) -> None:
+        """Test AdGuardHomeSwitch initialization."""
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        description = next(d for d in SWITCH_TYPES if d.key == "protection")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        assert switch._attr_unique_id == "test_entry_123_protection"
+        assert switch.entity_description == description
+
+    def test_switch_is_on_property(self, mock_coordinator: MagicMock) -> None:
+        """Test AdGuardHomeSwitch is_on property."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        mock_coordinator.data.status = AdGuardHomeStatus(
+            protection_enabled=True, running=True
+        )
+
+        description = next(d for d in SWITCH_TYPES if d.key == "protection")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        assert switch.is_on is True
+
+    @pytest.mark.asyncio
+    async def test_switch_async_turn_on(self, mock_coordinator: MagicMock) -> None:
+        """Test AdGuardHomeSwitch async_turn_on method."""
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        mock_coordinator.client.set_protection = AsyncMock()
+
+        description = next(d for d in SWITCH_TYPES if d.key == "protection")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        await switch.async_turn_on()
+
+        mock_coordinator.client.set_protection.assert_called_once_with(True)
+        mock_coordinator.async_request_refresh.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_switch_async_turn_off(self, mock_coordinator: MagicMock) -> None:
+        """Test AdGuardHomeSwitch async_turn_off method."""
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        mock_coordinator.client.set_protection = AsyncMock()
+
+        description = next(d for d in SWITCH_TYPES if d.key == "protection")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        await switch.async_turn_off()
+
+        mock_coordinator.client.set_protection.assert_called_once_with(False)
+        mock_coordinator.async_request_refresh.assert_called_once()
+
+
+class TestClientEntityManager:
+    """Tests for ClientEntityManager."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.hass = MagicMock()
+        coordinator.hass.async_create_task = MagicMock()
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = []
+        coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+        return coordinator
+
+    @pytest.mark.asyncio
+    async def test_manager_setup_no_clients(self, mock_coordinator: MagicMock) -> None:
+        """Test ClientEntityManager setup with no clients."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        added_entities = []
+        mock_add_entities = MagicMock(side_effect=lambda e: added_entities.extend(e))
+
+        manager = ClientEntityManager(mock_coordinator, mock_add_entities)
+        await manager.async_setup()
+
+        # No entities should be added when no clients
+        assert len(added_entities) == 0
+        # Listener should be registered
+        mock_coordinator.async_add_listener.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_manager_setup_with_clients(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test ClientEntityManager setup with existing clients."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        mock_coordinator.data.clients = [
+            {
+                "name": "laptop",
+                "ids": ["192.168.1.100"],
+                "use_global_settings": True,
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            }
+        ]
+
+        added_entities = []
+        mock_add_entities = MagicMock(side_effect=lambda e: added_entities.extend(e))
+
+        manager = ClientEntityManager(mock_coordinator, mock_add_entities)
+        await manager.async_setup()
+
+        # Should add 6 entities per client
+        assert len(added_entities) == 6
+
+    @pytest.mark.asyncio
+    async def test_manager_handles_new_clients(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test ClientEntityManager adds entities for new clients."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        added_entities = []
+        mock_add_entities = MagicMock(side_effect=lambda e: added_entities.extend(e))
+
+        manager = ClientEntityManager(mock_coordinator, mock_add_entities)
+        await manager.async_setup()
+
+        # Initial: no clients
+        assert len(added_entities) == 0
+
+        # Add a client
+        mock_coordinator.data.clients = [
+            {
+                "name": "laptop",
+                "ids": ["192.168.1.100"],
+                "use_global_settings": True,
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            }
+        ]
+
+        # Simulate coordinator update
+        await manager._async_add_new_client_entities()
+
+        # Should have added 6 entities
+        assert len(added_entities) == 6
+
+    @pytest.mark.asyncio
+    async def test_manager_skips_existing_clients(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test ClientEntityManager doesn't duplicate entities for existing clients."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        mock_coordinator.data.clients = [
+            {
+                "name": "laptop",
+                "ids": ["192.168.1.100"],
+                "use_global_settings": True,
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            }
+        ]
+
+        added_entities = []
+        mock_add_entities = MagicMock(side_effect=lambda e: added_entities.extend(e))
+
+        manager = ClientEntityManager(mock_coordinator, mock_add_entities)
+        await manager.async_setup()
+
+        initial_count = len(added_entities)
+
+        # Call again - should not add duplicates
+        await manager._async_add_new_client_entities()
+
+        assert len(added_entities) == initial_count
+
+    def test_manager_unsubscribe(self, mock_coordinator: MagicMock) -> None:
+        """Test ClientEntityManager unsubscribe."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        unsubscribe_called = []
+        mock_coordinator.async_add_listener = MagicMock(
+            return_value=lambda: unsubscribe_called.append(True)
+        )
+
+        manager = ClientEntityManager(mock_coordinator, MagicMock())
+        manager._unsubscribe = mock_coordinator.async_add_listener()
+
+        manager.async_unsubscribe()
+
+        assert len(unsubscribe_called) == 1
+        assert manager._unsubscribe is None
+
+    def test_manager_handle_coordinator_update(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test ClientEntityManager coordinator update callback."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        manager = ClientEntityManager(mock_coordinator, MagicMock())
+
+        # Should schedule async task
+        manager._handle_coordinator_update()
+
+        mock_coordinator.hass.async_create_task.assert_called_once()
+
+
+class TestDnsRewriteEntityManager:
+    """Tests for DnsRewriteEntityManager."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+        coordinator.hass = MagicMock()
+        coordinator.hass.async_create_task = MagicMock()
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.rewrites = []
+        coordinator.async_add_listener = MagicMock(return_value=lambda: None)
+        return coordinator
+
+    @pytest.mark.asyncio
+    async def test_manager_setup_no_rewrites(self, mock_coordinator: MagicMock) -> None:
+        """Test DnsRewriteEntityManager setup with no rewrites."""
+        from custom_components.adguard_home_extended.switch import (
+            DnsRewriteEntityManager,
+        )
+
+        added_entities = []
+        mock_add_entities = MagicMock(side_effect=lambda e: added_entities.extend(e))
+
+        manager = DnsRewriteEntityManager(mock_coordinator, mock_add_entities)
+        await manager.async_setup()
+
+        assert len(added_entities) == 0
+        mock_coordinator.async_add_listener.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_manager_setup_with_rewrites(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test DnsRewriteEntityManager setup with existing rewrites."""
+        from custom_components.adguard_home_extended.api.models import DnsRewrite
+        from custom_components.adguard_home_extended.switch import (
+            DnsRewriteEntityManager,
+        )
+
+        mock_coordinator.data.rewrites = [
+            DnsRewrite(domain="ads.example.com", answer="0.0.0.0", enabled=True),
+            DnsRewrite(domain="local.home", answer="192.168.1.1", enabled=True),
+        ]
+
+        added_entities = []
+        mock_add_entities = MagicMock(side_effect=lambda e: added_entities.extend(e))
+
+        manager = DnsRewriteEntityManager(mock_coordinator, mock_add_entities)
+        await manager.async_setup()
+
+        assert len(added_entities) == 2
+
+    @pytest.mark.asyncio
+    async def test_manager_handles_new_rewrites(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test DnsRewriteEntityManager adds entities for new rewrites."""
+        from custom_components.adguard_home_extended.api.models import DnsRewrite
+        from custom_components.adguard_home_extended.switch import (
+            DnsRewriteEntityManager,
+        )
+
+        added_entities = []
+        mock_add_entities = MagicMock(side_effect=lambda e: added_entities.extend(e))
+
+        manager = DnsRewriteEntityManager(mock_coordinator, mock_add_entities)
+        await manager.async_setup()
+
+        # Add a rewrite
+        mock_coordinator.data.rewrites = [
+            DnsRewrite(domain="new.example.com", answer="127.0.0.1", enabled=True),
+        ]
+
+        await manager._async_add_new_rewrite_entities()
+
+        assert len(added_entities) == 1
+
+    @pytest.mark.asyncio
+    async def test_manager_skips_existing_rewrites(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test DnsRewriteEntityManager doesn't duplicate existing rewrites."""
+        from custom_components.adguard_home_extended.api.models import DnsRewrite
+        from custom_components.adguard_home_extended.switch import (
+            DnsRewriteEntityManager,
+        )
+
+        mock_coordinator.data.rewrites = [
+            DnsRewrite(domain="ads.example.com", answer="0.0.0.0", enabled=True),
+        ]
+
+        added_entities = []
+        mock_add_entities = MagicMock(side_effect=lambda e: added_entities.extend(e))
+
+        manager = DnsRewriteEntityManager(mock_coordinator, mock_add_entities)
+        await manager.async_setup()
+
+        initial_count = len(added_entities)
+
+        # Call again - should not add duplicates
+        await manager._async_add_new_rewrite_entities()
+
+        assert len(added_entities) == initial_count
+
+    def test_manager_unsubscribe(self, mock_coordinator: MagicMock) -> None:
+        """Test DnsRewriteEntityManager unsubscribe."""
+        from custom_components.adguard_home_extended.switch import (
+            DnsRewriteEntityManager,
+        )
+
+        unsubscribe_called = []
+        mock_coordinator.async_add_listener = MagicMock(
+            return_value=lambda: unsubscribe_called.append(True)
+        )
+
+        manager = DnsRewriteEntityManager(mock_coordinator, MagicMock())
+        manager._unsubscribe = mock_coordinator.async_add_listener()
+
+        manager.async_unsubscribe()
+
+        assert len(unsubscribe_called) == 1
+        assert manager._unsubscribe is None
+
+    def test_manager_handle_coordinator_update(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test DnsRewriteEntityManager coordinator update callback."""
+        from custom_components.adguard_home_extended.switch import (
+            DnsRewriteEntityManager,
+        )
+
+        manager = DnsRewriteEntityManager(mock_coordinator, MagicMock())
+
+        manager._handle_coordinator_update()
+
+        mock_coordinator.hass.async_create_task.assert_called_once()
+
+
+class TestDnsRewriteSwitchVersionGating:
+    """Tests for version-gated DNS rewrite switch behavior."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+        coordinator.client = MagicMock()
+        coordinator.async_request_refresh = AsyncMock()
+
+        # Setup data with a rewrite
+        data = AdGuardHomeData()
+        data.rewrites = [
+            DnsRewrite(domain="ads.example.com", answer="0.0.0.0", enabled=True),
+        ]
+        coordinator.data = data
+
+        return coordinator
+
+    def test_extra_attributes_with_version_support(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test extra_state_attributes includes native toggle support info."""
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        mock_coordinator.server_version = MagicMock()
+        mock_coordinator.server_version.supports_rewrite_enabled = True
+
+        switch = AdGuardDnsRewriteSwitch(mock_coordinator, "ads.example.com", "0.0.0.0")
+
+        attrs = switch.extra_state_attributes
+        assert attrs["native_toggle_support"] is True
+
+    def test_is_on_older_version_always_true(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on returns True for older versions without enabled field support."""
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        mock_coordinator.server_version = MagicMock()
+        mock_coordinator.server_version.supports_rewrite_enabled = False
+
+        switch = AdGuardDnsRewriteSwitch(mock_coordinator, "ads.example.com", "0.0.0.0")
+
+        # Even if the rewrite has enabled=False, older versions report True
+        assert switch.is_on is True
+
+    @pytest.mark.asyncio
+    async def test_turn_on_older_version_no_action(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turn_on does nothing for older versions."""
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        mock_coordinator.server_version = MagicMock()
+        mock_coordinator.server_version.supports_rewrite_enabled = False
+        mock_coordinator.client.set_rewrite_enabled = AsyncMock()
+
+        switch = AdGuardDnsRewriteSwitch(mock_coordinator, "ads.example.com", "0.0.0.0")
+
+        await switch.async_turn_on()
+
+        # Should not call API for older versions
+        mock_coordinator.client.set_rewrite_enabled.assert_not_called()
+        # Should still refresh
+        mock_coordinator.async_request_refresh.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_turn_off_older_version_logs_warning(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turn_off logs warning for older versions."""
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        mock_coordinator.server_version = MagicMock()
+        mock_coordinator.server_version.supports_rewrite_enabled = False
+        mock_coordinator.client.set_rewrite_enabled = AsyncMock()
+
+        switch = AdGuardDnsRewriteSwitch(mock_coordinator, "ads.example.com", "0.0.0.0")
+
+        with patch(
+            "custom_components.adguard_home_extended.switch._LOGGER"
+        ) as mock_logger:
+            await switch.async_turn_off()
+
+            mock_logger.warning.assert_called_once()
+            assert "Cannot disable" in mock_logger.warning.call_args[0][0]
+
+        # Should not call API
+        mock_coordinator.client.set_rewrite_enabled.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_turn_on_newer_version_calls_api(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turn_on calls API for newer versions."""
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        mock_coordinator.server_version = MagicMock()
+        mock_coordinator.server_version.supports_rewrite_enabled = True
+        mock_coordinator.client.set_rewrite_enabled = AsyncMock()
+
+        switch = AdGuardDnsRewriteSwitch(mock_coordinator, "ads.example.com", "0.0.0.0")
+
+        await switch.async_turn_on()
+
+        mock_coordinator.client.set_rewrite_enabled.assert_called_once_with(
+            "ads.example.com", "0.0.0.0", True
+        )
+
+    @pytest.mark.asyncio
+    async def test_turn_off_newer_version_calls_api(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turn_off calls API for newer versions."""
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        mock_coordinator.server_version = MagicMock()
+        mock_coordinator.server_version.supports_rewrite_enabled = True
+        mock_coordinator.client.set_rewrite_enabled = AsyncMock()
+
+        switch = AdGuardDnsRewriteSwitch(mock_coordinator, "ads.example.com", "0.0.0.0")
+
+        await switch.async_turn_off()
+
+        mock_coordinator.client.set_rewrite_enabled.assert_called_once_with(
+            "ads.example.com", "0.0.0.0", False
+        )

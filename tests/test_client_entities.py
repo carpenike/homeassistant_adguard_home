@@ -134,6 +134,11 @@ class TestClientFilteringSwitch:
         switch = AdGuardClientFilteringSwitch(mock_coordinator, "Kids Tablet")
         assert switch.is_on is True
 
+    def test_is_on_client_not_found(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when client not found returns None."""
+        switch = AdGuardClientFilteringSwitch(mock_coordinator, "Nonexistent")
+        assert switch.is_on is None
+
     def test_device_info(self, mock_coordinator: MagicMock) -> None:
         """Test device info for client."""
         switch = AdGuardClientFilteringSwitch(mock_coordinator, "Kids Tablet")
@@ -212,6 +217,11 @@ class TestClientParentalSwitch:
         """Test is_on property when parental is enabled."""
         switch = AdGuardClientParentalSwitch(mock_coordinator, "Kids Tablet")
         assert switch.is_on is True
+
+    def test_is_on_client_not_found(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when client not found returns None."""
+        switch = AdGuardClientParentalSwitch(mock_coordinator, "Nonexistent")
+        assert switch.is_on is None
 
     def test_icon(self, mock_coordinator: MagicMock) -> None:
         """Test switch icon."""
@@ -320,6 +330,479 @@ class TestClientAvailability:
 
         switch = AdGuardClientFilteringSwitch(coordinator, "Test Client")
         assert switch.available is False
+
+
+class TestClientSafeBrowsingSwitch:
+    """Tests for AdGuardClientSafeBrowsingSwitch."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Secure PC",
+                "ids": ["192.168.1.102"],
+                "safebrowsing_enabled": True,
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        coordinator.last_update_success = True
+        return coordinator
+
+    def test_switch_name(self, mock_coordinator: MagicMock) -> None:
+        """Test switch name."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeBrowsingSwitch,
+        )
+
+        switch = AdGuardClientSafeBrowsingSwitch(mock_coordinator, "Secure PC")
+        assert switch.name == "Safe Browsing"
+
+    def test_is_on(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when safe browsing is enabled."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeBrowsingSwitch,
+        )
+
+        switch = AdGuardClientSafeBrowsingSwitch(mock_coordinator, "Secure PC")
+        assert switch.is_on is True
+
+    def test_is_on_when_disabled(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when safe browsing is disabled."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeBrowsingSwitch,
+        )
+
+        mock_coordinator.data.clients[0]["safebrowsing_enabled"] = False
+        switch = AdGuardClientSafeBrowsingSwitch(mock_coordinator, "Secure PC")
+        assert switch.is_on is False
+
+    def test_is_on_client_not_found(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when client not found returns None."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeBrowsingSwitch,
+        )
+
+        switch = AdGuardClientSafeBrowsingSwitch(mock_coordinator, "Nonexistent")
+        assert switch.is_on is None
+
+    def test_icon(self, mock_coordinator: MagicMock) -> None:
+        """Test switch icon."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeBrowsingSwitch,
+        )
+
+        switch = AdGuardClientSafeBrowsingSwitch(mock_coordinator, "Secure PC")
+        assert switch._attr_icon == "mdi:shield-check"
+
+    @pytest.mark.asyncio
+    async def test_turn_on(self, mock_coordinator: MagicMock) -> None:
+        """Test turning on safe browsing."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeBrowsingSwitch,
+        )
+
+        switch = AdGuardClientSafeBrowsingSwitch(mock_coordinator, "Secure PC")
+        await switch.async_turn_on()
+
+        mock_coordinator.client.update_client.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_turn_off(self, mock_coordinator: MagicMock) -> None:
+        """Test turning off safe browsing."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeBrowsingSwitch,
+        )
+
+        switch = AdGuardClientSafeBrowsingSwitch(mock_coordinator, "Secure PC")
+        await switch.async_turn_off()
+
+        mock_coordinator.client.update_client.assert_called_once()
+
+
+class TestClientSafeSearchSwitch:
+    """Tests for AdGuardClientSafeSearchSwitch."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Family PC",
+                "ids": ["192.168.1.103"],
+                "safesearch_enabled": True,
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        coordinator.last_update_success = True
+        return coordinator
+
+    def test_switch_name(self, mock_coordinator: MagicMock) -> None:
+        """Test switch name."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeSearchSwitch,
+        )
+
+        switch = AdGuardClientSafeSearchSwitch(mock_coordinator, "Family PC")
+        assert switch.name == "Safe Search"
+
+    def test_is_on(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when safe search is enabled."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeSearchSwitch,
+        )
+
+        switch = AdGuardClientSafeSearchSwitch(mock_coordinator, "Family PC")
+        assert switch.is_on is True
+
+    def test_is_on_when_disabled(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when safe search is disabled."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeSearchSwitch,
+        )
+
+        mock_coordinator.data.clients[0]["safesearch_enabled"] = False
+        switch = AdGuardClientSafeSearchSwitch(mock_coordinator, "Family PC")
+        assert switch.is_on is False
+
+    def test_is_on_client_not_found(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when client not found returns None."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeSearchSwitch,
+        )
+
+        switch = AdGuardClientSafeSearchSwitch(mock_coordinator, "Nonexistent")
+        assert switch.is_on is None
+
+    def test_icon(self, mock_coordinator: MagicMock) -> None:
+        """Test switch icon."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeSearchSwitch,
+        )
+
+        switch = AdGuardClientSafeSearchSwitch(mock_coordinator, "Family PC")
+        assert switch._attr_icon == "mdi:magnify-close"
+
+    @pytest.mark.asyncio
+    async def test_turn_on(self, mock_coordinator: MagicMock) -> None:
+        """Test turning on safe search."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeSearchSwitch,
+        )
+
+        switch = AdGuardClientSafeSearchSwitch(mock_coordinator, "Family PC")
+        await switch.async_turn_on()
+
+        mock_coordinator.client.update_client.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_turn_off(self, mock_coordinator: MagicMock) -> None:
+        """Test turning off safe search."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientSafeSearchSwitch,
+        )
+
+        switch = AdGuardClientSafeSearchSwitch(mock_coordinator, "Family PC")
+        await switch.async_turn_off()
+
+        mock_coordinator.client.update_client.assert_called_once()
+
+
+class TestClientUseGlobalBlockedServicesSwitch:
+    """Tests for AdGuardClientUseGlobalBlockedServicesSwitch."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Gaming PC",
+                "ids": ["192.168.1.104"],
+                "use_global_blocked_services": True,
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        coordinator.last_update_success = True
+        return coordinator
+
+    def test_switch_name(self, mock_coordinator: MagicMock) -> None:
+        """Test switch name."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalBlockedServicesSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalBlockedServicesSwitch(
+            mock_coordinator, "Gaming PC"
+        )
+        assert switch.name == "Use Global Blocked Services"
+
+    def test_is_on(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when using global blocked services."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalBlockedServicesSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalBlockedServicesSwitch(
+            mock_coordinator, "Gaming PC"
+        )
+        assert switch.is_on is True
+
+    def test_is_on_when_disabled(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when using custom blocked services."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalBlockedServicesSwitch,
+        )
+
+        mock_coordinator.data.clients[0]["use_global_blocked_services"] = False
+        switch = AdGuardClientUseGlobalBlockedServicesSwitch(
+            mock_coordinator, "Gaming PC"
+        )
+        assert switch.is_on is False
+
+    def test_is_on_client_not_found(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when client not found returns None."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalBlockedServicesSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalBlockedServicesSwitch(
+            mock_coordinator, "Nonexistent"
+        )
+        assert switch.is_on is None
+
+    def test_icon(self, mock_coordinator: MagicMock) -> None:
+        """Test switch icon."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalBlockedServicesSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalBlockedServicesSwitch(
+            mock_coordinator, "Gaming PC"
+        )
+        assert switch._attr_icon == "mdi:earth-box"
+
+    @pytest.mark.asyncio
+    async def test_turn_on(self, mock_coordinator: MagicMock) -> None:
+        """Test turning on global blocked services."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalBlockedServicesSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalBlockedServicesSwitch(
+            mock_coordinator, "Gaming PC"
+        )
+        await switch.async_turn_on()
+
+        mock_coordinator.client.update_client.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_turn_off(self, mock_coordinator: MagicMock) -> None:
+        """Test turning off global blocked services."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalBlockedServicesSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalBlockedServicesSwitch(
+            mock_coordinator, "Gaming PC"
+        )
+        await switch.async_turn_off()
+
+        mock_coordinator.client.update_client.assert_called_once()
+
+
+class TestClientBaseSwitchEdgeCases:
+    """Tests for edge cases in AdGuardClientBaseSwitch."""
+
+    def test_get_client_data_returns_none_when_data_is_none(self) -> None:
+        """Test _get_client_data returns None when coordinator.data is None."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = None
+        coordinator.last_update_success = True
+
+        switch = AdGuardClientFilteringSwitch(coordinator, "Test Client")
+        assert switch._get_client_data() is None
+
+    def test_extra_state_attributes_returns_empty_when_client_not_found(self) -> None:
+        """Test extra_state_attributes returns empty dict when client not found."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = []
+        coordinator.last_update_success = True
+
+        switch = AdGuardClientFilteringSwitch(coordinator, "Nonexistent")
+        assert switch.extra_state_attributes == {}
+
+    @pytest.mark.asyncio
+    async def test_async_update_client_does_nothing_when_client_not_found(self) -> None:
+        """Test _async_update_client returns early when client not found."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = []
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        coordinator.last_update_success = True
+
+        switch = AdGuardClientFilteringSwitch(coordinator, "Nonexistent")
+        await switch.async_turn_on()
+
+        # update_client should not be called since client doesn't exist
+        coordinator.client.update_client.assert_not_called()
+
+
+class TestClientUseGlobalSettingsSwitchAdditional:
+    """Additional tests for AdGuardClientUseGlobalSettingsSwitch."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Server",
+                "ids": ["192.168.1.200"],
+                "use_global_settings": False,
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        coordinator.last_update_success = True
+        return coordinator
+
+    @pytest.mark.asyncio
+    async def test_turn_on_enables_global_settings(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turning on enables global settings."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalSettingsSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalSettingsSwitch(mock_coordinator, "Server")
+        await switch.async_turn_on()
+
+        mock_coordinator.client.update_client.assert_called_once()
+
+    def test_is_on_when_not_using_global(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on when not using global settings."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalSettingsSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalSettingsSwitch(mock_coordinator, "Server")
+        assert switch.is_on is False
+
+    def test_is_on_client_not_found(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on property when client not found returns None."""
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientUseGlobalSettingsSwitch,
+        )
+
+        switch = AdGuardClientUseGlobalSettingsSwitch(mock_coordinator, "Nonexistent")
+        assert switch.is_on is None
+
+
+class TestClientParentalSwitchAdditional:
+    """Additional tests for AdGuardClientParentalSwitch."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Kids Tablet",
+                "ids": ["192.168.1.105"],
+                "parental_enabled": True,
+                "filtering_enabled": True,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        coordinator.last_update_success = True
+        return coordinator
+
+    @pytest.mark.asyncio
+    async def test_turn_on(self, mock_coordinator: MagicMock) -> None:
+        """Test turning on parental control."""
+        switch = AdGuardClientParentalSwitch(mock_coordinator, "Kids Tablet")
+        await switch.async_turn_on()
+
+        mock_coordinator.client.update_client.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_turn_off(self, mock_coordinator: MagicMock) -> None:
+        """Test turning off parental control."""
+        switch = AdGuardClientParentalSwitch(mock_coordinator, "Kids Tablet")
+        await switch.async_turn_off()
+
+        mock_coordinator.client.update_client.assert_called_once()
 
 
 class TestClientEntityManager:

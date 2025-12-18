@@ -17,7 +17,7 @@ from .api.models import DnsRewrite
 from .const import DOMAIN
 from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from . import AdGuardHomeConfigEntry
 
 _LOGGER = logging.getLogger(__name__)

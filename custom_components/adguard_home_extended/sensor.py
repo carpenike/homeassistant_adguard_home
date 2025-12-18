@@ -24,7 +24,7 @@ from .const import (
 )
 from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from . import AdGuardHomeConfigEntry
 
 

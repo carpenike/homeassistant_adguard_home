@@ -8,6 +8,7 @@ import pytest
 from custom_components.adguard_home_extended.blocked_services import (
     SERVICE_CATEGORIES,
     AdGuardBlockedServiceSwitch,
+    async_setup_entry,
 )
 from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
 
@@ -218,3 +219,112 @@ class TestBlockedServiceSwitch:
         )
 
         assert switch.is_on is None
+
+    def test_device_info(self, mock_coordinator: MagicMock) -> None:
+        """Test device info property."""
+        switch = AdGuardBlockedServiceSwitch(
+            coordinator=mock_coordinator,
+            service_id="facebook",
+            service_name="Facebook",
+        )
+
+        device_info = switch.device_info
+        assert device_info["name"] == "AdGuard Home"
+        assert device_info["manufacturer"] == "AdGuard"
+        assert ("adguard_home_extended", "test_entry") in device_info["identifiers"]
+
+    @pytest.mark.asyncio
+    async def test_turn_on_when_data_is_none(self, mock_coordinator: MagicMock) -> None:
+        """Test turning on when coordinator data is None returns early."""
+        mock_coordinator.data = None
+        switch = AdGuardBlockedServiceSwitch(
+            coordinator=mock_coordinator,
+            service_id="facebook",
+            service_name="Facebook",
+        )
+
+        await switch.async_turn_on()
+
+        # Should not call set_blocked_services
+        mock_coordinator.client.set_blocked_services.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_turn_off_when_data_is_none(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turning off when coordinator data is None returns early."""
+        mock_coordinator.data = None
+        switch = AdGuardBlockedServiceSwitch(
+            coordinator=mock_coordinator,
+            service_id="facebook",
+            service_name="Facebook",
+        )
+
+        await switch.async_turn_off()
+
+        # Should not call set_blocked_services
+        mock_coordinator.client.set_blocked_services.assert_not_called()
+
+
+class TestAsyncSetupEntry:
+    """Tests for async_setup_entry function."""
+
+    @pytest.mark.asyncio
+    async def test_setup_entry_creates_entities(self) -> None:
+        """Test setup entry creates entities for available services."""
+        coordinator = MagicMock()
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.available_services = [
+            {"id": "facebook", "name": "Facebook"},
+            {"id": "youtube", "name": "YouTube"},
+        ]
+        coordinator.data.blocked_services = []
+
+        entry = MagicMock()
+        entry.runtime_data = coordinator
+
+        async_add_entities = MagicMock()
+
+        await async_setup_entry(MagicMock(), entry, async_add_entities)
+
+        # Should have called async_add_entities with 2 entities
+        async_add_entities.assert_called_once()
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 2
+
+    @pytest.mark.asyncio
+    async def test_setup_entry_no_services(self) -> None:
+        """Test setup entry with no available services."""
+        coordinator = MagicMock()
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.available_services = []
+        coordinator.data.blocked_services = []
+
+        entry = MagicMock()
+        entry.runtime_data = coordinator
+
+        async_add_entities = MagicMock()
+
+        await async_setup_entry(MagicMock(), entry, async_add_entities)
+
+        # Should have called async_add_entities with empty list
+        async_add_entities.assert_called_once()
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 0
+
+    @pytest.mark.asyncio
+    async def test_setup_entry_with_none_data_calls_refresh(self) -> None:
+        """Test setup entry calls refresh when data is None."""
+        coordinator = MagicMock()
+        coordinator.data = None
+        coordinator.async_config_entry_first_refresh = AsyncMock()
+
+        entry = MagicMock()
+        entry.runtime_data = coordinator
+
+        async_add_entities = MagicMock()
+
+        await async_setup_entry(MagicMock(), entry, async_add_entities)
+
+        # Should have called async_config_entry_first_refresh
+        coordinator.async_config_entry_first_refresh.assert_called_once()

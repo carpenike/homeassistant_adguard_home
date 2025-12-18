@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 
 from .version import parse_version
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from . import AdGuardHomeConfigEntry
 
 TO_REDACT = {CONF_PASSWORD, CONF_USERNAME}

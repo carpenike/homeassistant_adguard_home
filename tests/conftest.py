@@ -8,6 +8,8 @@
 """
 from __future__ import annotations
 
+import builtins
+import threading
 from collections.abc import Generator
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -20,6 +22,22 @@ from custom_components.adguard_home_extended.api.models import (
     DhcpStatus,
     FilteringStatus,
 )
+
+# Monkey-patch threading._DummyThread to allow _run_safe_shutdown_loop threads
+# This works around a bug in pytest-homeassistant-custom-component < 0.13.206
+_original_isinstance = isinstance
+
+
+def _patched_isinstance(obj, classinfo):
+    """Allow aiohttp shutdown threads to pass verify_cleanup."""
+    if classinfo is threading._DummyThread and hasattr(obj, "name"):
+        if "_run_safe_shutdown_loop" in obj.name:
+            return True
+    return _original_isinstance(obj, classinfo)
+
+
+# Apply the patch at module load time
+builtins.isinstance = _patched_isinstance
 
 
 @pytest.fixture

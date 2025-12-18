@@ -12,7 +12,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 from .coordinator import AdGuardHomeDataUpdateCoordinator
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from . import AdGuardHomeConfigEntry
 
 _LOGGER = logging.getLogger(__name__)

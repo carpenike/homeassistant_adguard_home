@@ -60,6 +60,11 @@ class TestAdGuardHomeVersion:
         assert v.parsed == (0, 107, 43)
         assert v.prerelease == "beta.1"
 
+    def test_prerelease_returns_none_for_empty_version(self) -> None:
+        """Test prerelease property returns None for empty version string."""
+        v = AdGuardHomeVersion("")
+        assert v.prerelease is None
+
     def test_parse_empty_version(self) -> None:
         """Test parsing empty version string."""
         v = AdGuardHomeVersion("")
@@ -112,6 +117,13 @@ class TestAdGuardHomeVersion:
         v1 = AdGuardHomeVersion("0.107.56")
         v2 = AdGuardHomeVersion("v0.107.56")
         assert v1 == v2
+
+    def test_comparison_eq_unsupported_type_returns_not_implemented(self) -> None:
+        """Test == comparison with unsupported type returns NotImplemented."""
+        v = AdGuardHomeVersion("0.107.56")
+        # Comparing with a string should return NotImplemented
+        result = v.__eq__("0.107.56")
+        assert result is NotImplemented
 
     def test_str_representation(self) -> None:
         """Test string representation."""

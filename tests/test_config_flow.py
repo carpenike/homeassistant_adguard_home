@@ -231,6 +231,35 @@ class TestConfigFlow:
             assert result["type"] == FlowResultType.FORM
             assert result["errors"] == {"base": "invalid_auth"}
 
+    @pytest.mark.asyncio
+    async def test_form_user_unknown_error(self, hass: HomeAssistant) -> None:
+        """Test unexpected exception handling."""
+        flow = AdGuardHomeConfigFlow()
+        flow.hass = hass
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(
+                side_effect=RuntimeError("Unexpected error")
+            )
+            mock_client_class.return_value = mock_client
+
+            result = await flow.async_step_user(
+                user_input={
+                    "host": "192.168.1.1",
+                    "port": 3000,
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "unknown"}
+
 
 class TestOptionsFlow:
     """Tests for the options flow."""

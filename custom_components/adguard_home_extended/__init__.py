@@ -22,7 +22,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from .const import DOMAIN
 from .coordinator import AdGuardHomeDataUpdateCoordinator
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from homeassistant.config_entries import ConfigEntry
 
     # Type alias for typed ConfigEntry with runtime_data

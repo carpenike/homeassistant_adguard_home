@@ -1,6 +1,8 @@
 """Tests for the AdGuard Home Extended sensor platform."""
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 
 from custom_components.adguard_home_extended.api.models import (
@@ -372,3 +374,154 @@ class TestDnsConfigSensors:
         desc = next(d for d in SENSOR_TYPES if d.key == "upstream_dns_servers")
         attrs = desc.attributes_fn(data, 10, 15)
         assert len(attrs["upstream_servers"]) == 15
+
+
+class TestAsyncSetupEntry:
+    """Tests for sensor async_setup_entry."""
+
+    @pytest.mark.asyncio
+    async def test_async_setup_entry_creates_sensors(self) -> None:
+        """Test that async_setup_entry creates all sensor entities."""
+        from unittest.mock import MagicMock
+
+        from custom_components.adguard_home_extended.sensor import async_setup_entry
+
+        # Mock config entry
+        mock_entry = MagicMock()
+        mock_entry.entry_id = "test_entry_123"
+
+        # Mock coordinator
+        mock_coordinator = MagicMock()
+        mock_coordinator.data = AdGuardHomeData()
+        mock_entry.runtime_data = mock_coordinator
+
+        # Track added entities
+        added_entities = []
+        mock_async_add_entities = MagicMock(
+            side_effect=lambda e: added_entities.extend(list(e))
+        )
+
+        await async_setup_entry(MagicMock(), mock_entry, mock_async_add_entities)
+
+        # Should create 15 sensors (SENSOR_TYPES has 15 entries)
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        assert len(added_entities) == len(SENSOR_TYPES)
+
+
+class TestAdGuardHomeSensor:
+    """Tests for AdGuardHomeSensor entity."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.config_entry.options = {}
+        coordinator.device_info = {"identifiers": {("adguard_home_extended", "test")}}
+        coordinator.data = AdGuardHomeData()
+        return coordinator
+
+    def test_sensor_initialization(self, mock_coordinator: MagicMock) -> None:
+        """Test AdGuardHomeSensor initialization."""
+        from custom_components.adguard_home_extended.sensor import (
+            SENSOR_TYPES,
+            AdGuardHomeSensor,
+        )
+
+        description = next(d for d in SENSOR_TYPES if d.key == "dns_queries")
+        sensor = AdGuardHomeSensor(mock_coordinator, description)
+
+        assert sensor._attr_unique_id == "test_entry_123_dns_queries"
+        assert sensor.entity_description == description
+        assert sensor._attr_device_info == mock_coordinator.device_info
+
+    def test_sensor_native_value(self, mock_coordinator: MagicMock) -> None:
+        """Test AdGuardHomeSensor native_value property."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStats
+        from custom_components.adguard_home_extended.sensor import (
+            SENSOR_TYPES,
+            AdGuardHomeSensor,
+        )
+
+        mock_coordinator.data.stats = AdGuardHomeStats(dns_queries=12345)
+
+        description = next(d for d in SENSOR_TYPES if d.key == "dns_queries")
+        sensor = AdGuardHomeSensor(mock_coordinator, description)
+
+        assert sensor.native_value == 12345
+
+    def test_sensor_native_value_none(self, mock_coordinator: MagicMock) -> None:
+        """Test AdGuardHomeSensor native_value when data is None."""
+        from custom_components.adguard_home_extended.sensor import (
+            SENSOR_TYPES,
+            AdGuardHomeSensor,
+        )
+
+        mock_coordinator.data.stats = None
+
+        description = next(d for d in SENSOR_TYPES if d.key == "dns_queries")
+        sensor = AdGuardHomeSensor(mock_coordinator, description)
+
+        assert sensor.native_value is None
+
+    def test_sensor_extra_state_attributes(self, mock_coordinator: MagicMock) -> None:
+        """Test AdGuardHomeSensor extra_state_attributes property."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStats
+        from custom_components.adguard_home_extended.sensor import (
+            SENSOR_TYPES,
+            AdGuardHomeSensor,
+        )
+
+        mock_coordinator.data.stats = AdGuardHomeStats(
+            dns_queries=100,
+            top_blocked_domains=[{"ads.com": 50}],
+        )
+
+        description = next(d for d in SENSOR_TYPES if d.key == "top_blocked_domain")
+        sensor = AdGuardHomeSensor(mock_coordinator, description)
+
+        attrs = sensor.extra_state_attributes
+        assert attrs is not None
+        assert "top_blocked_domains" in attrs
+
+    def test_sensor_extra_state_attributes_none(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test AdGuardHomeSensor extra_state_attributes when no fn defined."""
+        from custom_components.adguard_home_extended.sensor import (
+            SENSOR_TYPES,
+            AdGuardHomeSensor,
+        )
+
+        # dns_queries has no attributes_fn
+        description = next(d for d in SENSOR_TYPES if d.key == "dns_queries")
+        sensor = AdGuardHomeSensor(mock_coordinator, description)
+
+        assert sensor.extra_state_attributes is None
+
+    def test_sensor_extra_state_attributes_with_custom_limits(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test extra_state_attributes uses custom limits from options."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStats
+        from custom_components.adguard_home_extended.sensor import (
+            SENSOR_TYPES,
+            AdGuardHomeSensor,
+        )
+
+        mock_coordinator.config_entry.options = {
+            "attr_top_items_limit": 3,
+            "attr_list_limit": 5,
+        }
+        mock_coordinator.data.stats = AdGuardHomeStats(
+            dns_queries=100,
+            top_blocked_domains=[{f"domain{i}.com": i} for i in range(10)],
+        )
+
+        description = next(d for d in SENSOR_TYPES if d.key == "top_blocked_domain")
+        sensor = AdGuardHomeSensor(mock_coordinator, description)
+
+        attrs = sensor.extra_state_attributes
+        # Should respect the custom limit of 3 for top items
+        assert len(attrs["top_blocked_domains"]) == 3

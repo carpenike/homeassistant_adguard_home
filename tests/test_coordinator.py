@@ -540,3 +540,99 @@ class TestAdGuardHomeDataUpdateCoordinator:
 
         # Should NOT have called get_all_blocked_services during update
         mock_client.get_all_blocked_services.assert_not_called()
+
+    def test_server_version_when_not_set(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test server_version property returns empty version when not set."""
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        # Server version is None before _async_setup
+        version = coordinator.server_version
+        assert version.parsed == (0, 0, 0)
+
+    @pytest.mark.asyncio
+    async def test_stats_config_connection_error(
+        self, hass: HomeAssistant, mock_entry: MagicMock
+    ) -> None:
+        """Test stats config connection error is handled gracefully."""
+        mock_client = AsyncMock()
+        mock_client.get_status = AsyncMock(
+            return_value=AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",  # Supports stats config
+            )
+        )
+        mock_client.get_stats = AsyncMock(
+            return_value=AdGuardHomeStats(dns_queries=100, blocked_filtering=10)
+        )
+        mock_client.get_filtering_status = AsyncMock(return_value=MagicMock())
+        mock_client.get_dns_info = AsyncMock(return_value={"cache_enabled": True})
+        mock_client.get_blocked_services_with_schedule = AsyncMock(
+            return_value={"ids": [], "schedule": {}}
+        )
+        mock_client.get_all_blocked_services = AsyncMock(return_value=[])
+        mock_client.get_clients = AsyncMock(return_value=[])
+        mock_client.get_dhcp_status = AsyncMock(return_value=MagicMock(enabled=False))
+        mock_client.get_rewrites = AsyncMock(return_value=[])
+        mock_client.get_query_log = AsyncMock(return_value=[])
+        # Make stats config fail
+        mock_client.get_stats_config = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("Stats config failed")
+        )
+        mock_client.get_querylog_config = AsyncMock(return_value=MagicMock())
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        # Run setup first to set server version
+        await coordinator._async_setup()
+
+        # Run update - should not raise despite stats_config error
+        data = await coordinator._async_update_data()
+
+        assert data is not None
+        assert data.stats_config is None  # Failed to fetch
+
+    @pytest.mark.asyncio
+    async def test_querylog_config_connection_error(
+        self, hass: HomeAssistant, mock_entry: MagicMock
+    ) -> None:
+        """Test querylog config connection error is handled gracefully."""
+        mock_client = AsyncMock()
+        mock_client.get_status = AsyncMock(
+            return_value=AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",  # Supports querylog config
+            )
+        )
+        mock_client.get_stats = AsyncMock(
+            return_value=AdGuardHomeStats(dns_queries=100, blocked_filtering=10)
+        )
+        mock_client.get_filtering_status = AsyncMock(return_value=MagicMock())
+        mock_client.get_dns_info = AsyncMock(return_value={"cache_enabled": True})
+        mock_client.get_blocked_services_with_schedule = AsyncMock(
+            return_value={"ids": [], "schedule": {}}
+        )
+        mock_client.get_all_blocked_services = AsyncMock(return_value=[])
+        mock_client.get_clients = AsyncMock(return_value=[])
+        mock_client.get_dhcp_status = AsyncMock(return_value=MagicMock(enabled=False))
+        mock_client.get_rewrites = AsyncMock(return_value=[])
+        mock_client.get_query_log = AsyncMock(return_value=[])
+        mock_client.get_stats_config = AsyncMock(return_value=MagicMock())
+        # Make querylog config fail
+        mock_client.get_querylog_config = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("Querylog config failed")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        # Run setup first to set server version
+        await coordinator._async_setup()
+
+        # Run update - should not raise despite querylog_config error
+        data = await coordinator._async_update_data()
+
+        assert data is not None
+        assert data.querylog_config is None  # Failed to fetch
