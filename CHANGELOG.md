@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **415 Unsupported Media Type error (aiohttp fix)** - Use `skip_auto_headers={"Content-Type"}` to prevent aiohttp from auto-adding Content-Type header on POST requests without a body. This is the correct solution per aiohttp documentation
+- **400 Bad Request on client update** - Fixed `/control/clients/update` API payload to include all required Client schema fields and `blocked_services_schedule` when using per-client blocked services (required since AdGuard Home v0.107.37)
+- **Sensor state_class warnings** - Changed `dns_queries`, `blocked_queries`, `safe_browsing_blocked`, and `parental_blocked` sensors from `SensorStateClass.TOTAL_INCREASING` to `SensorStateClass.TOTAL` since AdGuard Home statistics can be reset manually or periodically
+
+### Added
+
+- Tests for `skip_auto_headers` usage on no-body POST requests
+- Tests for `blocked_services_schedule` handling in `add_client` and `update_client`
+- Tests verifying sensor state_class configuration for resettable statistics
+
 ## [0.2.2] - 2025-12-18
 
 ### Added

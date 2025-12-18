@@ -43,7 +43,10 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="dns_queries",
         icon="mdi:dns",
         native_unit_of_measurement="queries",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        # Use TOTAL instead of TOTAL_INCREASING because AdGuard Home
+        # resets statistics periodically (configurable interval) or manually,
+        # causing values to decrease which violates TOTAL_INCREASING contract
+        state_class=SensorStateClass.TOTAL,
         value_fn=lambda data: data.stats.dns_queries if data.stats else None,
     ),
     AdGuardHomeSensorEntityDescription(
@@ -51,7 +54,10 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="blocked_queries",
         icon="mdi:shield-off",
         native_unit_of_measurement="queries",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        # Use TOTAL instead of TOTAL_INCREASING because AdGuard Home
+        # resets statistics periodically (configurable interval) or manually,
+        # causing values to decrease which violates TOTAL_INCREASING contract
+        state_class=SensorStateClass.TOTAL,
         value_fn=lambda data: data.stats.blocked_filtering if data.stats else None,
     ),
     AdGuardHomeSensorEntityDescription(
@@ -83,7 +89,9 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="safe_browsing_blocked",
         icon="mdi:shield-lock",
         native_unit_of_measurement="queries",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        # Use TOTAL instead of TOTAL_INCREASING because AdGuard Home
+        # resets statistics periodically (configurable interval) or manually
+        state_class=SensorStateClass.TOTAL,
         value_fn=lambda data: (
             data.stats.replaced_safebrowsing if data.stats else None
         ),
@@ -93,7 +101,9 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         translation_key="parental_blocked",
         icon="mdi:account-child",
         native_unit_of_measurement="queries",
-        state_class=SensorStateClass.TOTAL_INCREASING,
+        # Use TOTAL instead of TOTAL_INCREASING because AdGuard Home
+        # resets statistics periodically (configurable interval) or manually
+        state_class=SensorStateClass.TOTAL,
         value_fn=lambda data: data.stats.replaced_parental if data.stats else None,
     ),
     AdGuardHomeSensorEntityDescription(

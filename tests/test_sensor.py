@@ -612,3 +612,58 @@ class TestAdGuardHomeSensor:
         attrs = sensor.extra_state_attributes
         # Should respect the custom limit of 3 for top items
         assert len(attrs["top_blocked_domains"]) == 3
+
+
+class TestSensorStateClass:
+    """Tests for sensor state class configuration.
+
+    These tests verify that resettable statistics use SensorStateClass.TOTAL
+    (not TOTAL_INCREASING) to avoid HA warnings when stats are reset.
+    """
+
+    def test_resettable_stats_use_total_state_class(self) -> None:
+        """Test that resettable statistics use TOTAL state class.
+
+        Regression test for Home Assistant warnings about total_increasing
+        sensors that reset. AdGuard Home statistics can be reset manually
+        or periodically, so they should use TOTAL, not TOTAL_INCREASING.
+        """
+        from homeassistant.components.sensor import SensorStateClass
+
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        # These sensors represent statistics that can be reset
+        resettable_sensor_keys = [
+            "dns_queries",
+            "blocked_queries",
+            "safe_browsing_blocked",
+            "parental_blocked",
+        ]
+
+        for key in resettable_sensor_keys:
+            sensor = next((d for d in SENSOR_TYPES if d.key == key), None)
+            assert sensor is not None, f"Sensor {key} not found"
+            assert sensor.state_class == SensorStateClass.TOTAL, (
+                f"Sensor {key} should use TOTAL state class (allows resets), "
+                f"not {sensor.state_class}"
+            )
+
+    def test_avg_processing_time_uses_measurement_state_class(self) -> None:
+        """Test that average processing time uses MEASUREMENT state class."""
+        from homeassistant.components.sensor import SensorStateClass
+
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        sensor = next((d for d in SENSOR_TYPES if d.key == "avg_processing_time"), None)
+        assert sensor is not None
+        assert sensor.state_class == SensorStateClass.MEASUREMENT
+
+    def test_percentage_sensors_use_measurement_state_class(self) -> None:
+        """Test that percentage sensors use MEASUREMENT state class."""
+        from homeassistant.components.sensor import SensorStateClass
+
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        sensor = next((d for d in SENSOR_TYPES if d.key == "blocked_percentage"), None)
+        assert sensor is not None
+        assert sensor.state_class == SensorStateClass.MEASUREMENT

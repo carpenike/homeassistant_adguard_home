@@ -151,8 +151,9 @@ class AdGuardHomeClient:
         }
 
         # Build request kwargs - only include json parameter when we have data
-        # Some AdGuard Home endpoints reject Content-Type: application/json
-        # when there's no body (returns 415 Unsupported Media Type)
+        # AdGuard Home v0.107.15+ requires that POST requests without a body
+        # must NOT have Content-Type header set (returns 415 Unsupported Media Type)
+        # This affects endpoints like /parental/enable, /safebrowsing/enable, etc.
         request_kwargs: dict[str, Any] = {
             "headers": headers,
             "timeout": self._timeout,
@@ -160,6 +161,12 @@ class AdGuardHomeClient:
         if data is not None:
             headers["Content-Type"] = "application/json"
             request_kwargs["json"] = data
+        else:
+            # Explicitly signal no Content-Type for no-body requests
+            # This overrides any default Content-Type that might be set on the session
+            # Setting to None or empty string doesn't work with aiohttp, but
+            # we can use skip_auto_headers to prevent aiohttp from adding it
+            request_kwargs["skip_auto_headers"] = {"Content-Type"}
 
         try:
             async with self._session.request(
@@ -385,42 +392,81 @@ class AdGuardHomeClient:
         clients = data.get("clients", [])
         return [ClientConfig.from_dict(client) for client in clients]
 
-    async def add_client(self, client: ClientConfig) -> None:
-        """Add a client."""
-        await self._post(
-            API_CLIENTS_ADD,
-            {
-                "name": client.name,
-                "ids": client.ids,
-                "use_global_settings": client.use_global_settings,
-                "filtering_enabled": client.filtering_enabled,
-                "parental_enabled": client.parental_enabled,
-                "safebrowsing_enabled": client.safebrowsing_enabled,
-                "safesearch_enabled": client.safesearch_enabled,
-                "use_global_blocked_services": client.use_global_blocked_services,
-                "blocked_services": client.blocked_services,
-                "tags": client.tags,
-            },
-        )
+    async def add_client(
+        self,
+        client: ClientConfig,
+        blocked_services_schedule: dict[str, Any] | None = None,
+    ) -> None:
+        """Add a client.
 
-    async def update_client(self, name: str, client: ClientConfig) -> None:
-        """Update a client."""
+        Args:
+            client: The ClientConfig with client settings.
+            blocked_services_schedule: Optional schedule for blocked services.
+                Format: {"time_zone": "Local", "mon": {"start": 0, "end": 86400000}, ...}
+        """
+        data: dict[str, Any] = {
+            "name": client.name,
+            "ids": client.ids,
+            "use_global_settings": client.use_global_settings,
+            "filtering_enabled": client.filtering_enabled,
+            "parental_enabled": client.parental_enabled,
+            "safebrowsing_enabled": client.safebrowsing_enabled,
+            "safesearch_enabled": client.safesearch_enabled,
+            "use_global_blocked_services": client.use_global_blocked_services,
+            "blocked_services": client.blocked_services or [],
+            "tags": client.tags or [],
+        }
+
+        # Add blocked_services_schedule if provided (v0.107.37+)
+        if blocked_services_schedule is not None:
+            data["blocked_services_schedule"] = blocked_services_schedule
+        elif not client.use_global_blocked_services:
+            # Provide a default empty schedule when using per-client blocked services
+            data["blocked_services_schedule"] = {"time_zone": "Local"}
+
+        await self._post(API_CLIENTS_ADD, data)
+
+    async def update_client(
+        self,
+        name: str,
+        client: ClientConfig,
+        blocked_services_schedule: dict[str, Any] | None = None,
+    ) -> None:
+        """Update a client.
+
+        Args:
+            name: The current name of the client to update.
+            client: The ClientConfig with updated values.
+            blocked_services_schedule: Optional schedule for blocked services.
+                Format: {"time_zone": "Local", "mon": {"start": 0, "end": 86400000}, ...}
+        """
+        # Build the data dict with all required Client schema fields
+        data: dict[str, Any] = {
+            "name": client.name,
+            "ids": client.ids,
+            "use_global_settings": client.use_global_settings,
+            "filtering_enabled": client.filtering_enabled,
+            "parental_enabled": client.parental_enabled,
+            "safebrowsing_enabled": client.safebrowsing_enabled,
+            "safesearch_enabled": client.safesearch_enabled,
+            "use_global_blocked_services": client.use_global_blocked_services,
+            "blocked_services": client.blocked_services or [],
+            "tags": client.tags or [],
+        }
+
+        # Add blocked_services_schedule if provided (v0.107.37+)
+        # This is required when use_global_blocked_services is False
+        if blocked_services_schedule is not None:
+            data["blocked_services_schedule"] = blocked_services_schedule
+        elif not client.use_global_blocked_services:
+            # Provide a default empty schedule when using per-client blocked services
+            data["blocked_services_schedule"] = {"time_zone": "Local"}
+
         await self._post(
             API_CLIENTS_UPDATE,
             {
                 "name": name,
-                "data": {
-                    "name": client.name,
-                    "ids": client.ids,
-                    "use_global_settings": client.use_global_settings,
-                    "filtering_enabled": client.filtering_enabled,
-                    "parental_enabled": client.parental_enabled,
-                    "safebrowsing_enabled": client.safebrowsing_enabled,
-                    "safesearch_enabled": client.safesearch_enabled,
-                    "use_global_blocked_services": client.use_global_blocked_services,
-                    "blocked_services": client.blocked_services,
-                    "tags": client.tags,
-                },
+                "data": data,
             },
         )
 

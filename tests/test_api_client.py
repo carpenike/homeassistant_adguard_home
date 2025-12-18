@@ -233,6 +233,7 @@ class TestAdGuardHomeClient:
         """Test set_parental(True) does not send Content-Type header.
 
         Regression test for 415 Unsupported Media Type error.
+        Uses skip_auto_headers to prevent aiohttp from auto-adding Content-Type.
         """
         mock_response = create_mock_response(status=200, json_data=None)
         mock_session.request.return_value = MockContextManager(mock_response)
@@ -242,6 +243,9 @@ class TestAdGuardHomeClient:
         call_kwargs = mock_session.request.call_args
         headers = call_kwargs.kwargs["headers"]
         assert "Content-Type" not in headers
+        # Verify skip_auto_headers is used to prevent aiohttp auto-adding Content-Type
+        assert "skip_auto_headers" in call_kwargs.kwargs
+        assert "Content-Type" in call_kwargs.kwargs["skip_auto_headers"]
 
     @pytest.mark.asyncio
     async def test_set_safebrowsing_enable_no_content_type(
@@ -250,6 +254,7 @@ class TestAdGuardHomeClient:
         """Test set_safebrowsing(True) does not send Content-Type header.
 
         Regression test for 415 Unsupported Media Type error.
+        Uses skip_auto_headers to prevent aiohttp from auto-adding Content-Type.
         """
         mock_response = create_mock_response(status=200, json_data=None)
         mock_session.request.return_value = MockContextManager(mock_response)
@@ -259,6 +264,9 @@ class TestAdGuardHomeClient:
         call_kwargs = mock_session.request.call_args
         headers = call_kwargs.kwargs["headers"]
         assert "Content-Type" not in headers
+        # Verify skip_auto_headers is used to prevent aiohttp auto-adding Content-Type
+        assert "skip_auto_headers" in call_kwargs.kwargs
+        assert "Content-Type" in call_kwargs.kwargs["skip_auto_headers"]
 
     def test_default_timeout_value(self) -> None:
         """Test default timeout is 30 seconds."""
@@ -2013,3 +2021,135 @@ class TestApiClientAdditionalMethods:
         mock_session.request.assert_called_once()
         call_args = mock_session.request.call_args
         assert "/control/blocked_services/set" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_update_client_with_schedule(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test updating a client with blocked_services_schedule."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        updated_client = ClientConfig(
+            name="Client with Schedule",
+            ids=["192.168.1.200"],
+            use_global_settings=False,
+            filtering_enabled=True,
+            parental_enabled=False,
+            safebrowsing_enabled=False,
+            safesearch_enabled=False,
+            use_global_blocked_services=False,
+            blocked_services=["youtube"],
+            tags=[],
+        )
+        schedule = {
+            "time_zone": "America/New_York",
+            "mon": {"start": 0, "end": 86400000},
+        }
+        await client.update_client(
+            "Old Client", updated_client, blocked_services_schedule=schedule
+        )
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        assert json_data["data"]["blocked_services_schedule"] == schedule
+
+    @pytest.mark.asyncio
+    async def test_update_client_auto_schedule_when_per_client_services(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test update_client provides default schedule when use_global_blocked_services is False."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        updated_client = ClientConfig(
+            name="Client",
+            ids=["192.168.1.200"],
+            use_global_settings=False,
+            filtering_enabled=True,
+            parental_enabled=False,
+            safebrowsing_enabled=False,
+            safesearch_enabled=False,
+            use_global_blocked_services=False,  # Per-client services
+            blocked_services=["youtube"],
+            tags=[],
+        )
+        await client.update_client("Client", updated_client)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        # Should have default schedule with time_zone
+        assert "blocked_services_schedule" in json_data["data"]
+        assert json_data["data"]["blocked_services_schedule"]["time_zone"] == "Local"
+
+    @pytest.mark.asyncio
+    async def test_add_client_with_schedule(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test adding a client with blocked_services_schedule."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        new_client = ClientConfig(
+            name="New Client",
+            ids=["192.168.1.200"],
+            use_global_settings=False,
+            filtering_enabled=True,
+            parental_enabled=False,
+            safebrowsing_enabled=False,
+            safesearch_enabled=False,
+            use_global_blocked_services=False,
+            blocked_services=["youtube"],
+            tags=[],
+        )
+        schedule = {"time_zone": "Europe/London"}
+        await client.add_client(new_client, blocked_services_schedule=schedule)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        assert json_data["blocked_services_schedule"] == schedule
+
+    @pytest.mark.asyncio
+    async def test_add_client_auto_schedule_when_per_client_services(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test add_client provides default schedule when use_global_blocked_services is False."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        new_client = ClientConfig(
+            name="New Client",
+            ids=["192.168.1.200"],
+            use_global_settings=False,
+            filtering_enabled=True,
+            parental_enabled=False,
+            safebrowsing_enabled=False,
+            safesearch_enabled=False,
+            use_global_blocked_services=False,  # Per-client services
+            blocked_services=["youtube"],
+            tags=[],
+        )
+        await client.add_client(new_client)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        # Should have default schedule with time_zone
+        assert "blocked_services_schedule" in json_data
+        assert json_data["blocked_services_schedule"]["time_zone"] == "Local"
