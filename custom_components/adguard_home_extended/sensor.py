@@ -290,11 +290,10 @@ async def async_setup_entry(
     )
 
 
-class AdGuardHomeSensor(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SensorEntity
-):
+class AdGuardHomeSensor(CoordinatorEntity, SensorEntity):
     """Representation of an AdGuard Home sensor."""
 
+    coordinator: AdGuardHomeDataUpdateCoordinator
     entity_description: AdGuardHomeSensorEntityDescription
     _attr_has_entity_name = True
 

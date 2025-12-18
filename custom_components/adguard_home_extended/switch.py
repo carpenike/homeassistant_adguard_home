@@ -254,11 +254,10 @@ class ClientEntityManager:
             self._unsubscribe = None
 
 
-class AdGuardHomeSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
-):
+class AdGuardHomeSwitch(CoordinatorEntity, SwitchEntity):
     """Representation of an AdGuard Home switch."""
 
+    coordinator: AdGuardHomeDataUpdateCoordinator
     entity_description: AdGuardHomeSwitchEntityDescription
     _attr_has_entity_name = True
 
@@ -362,15 +361,14 @@ class DnsRewriteEntityManager:
             self._unsubscribe = None
 
 
-class AdGuardDnsRewriteSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
-):
+class AdGuardDnsRewriteSwitch(CoordinatorEntity, SwitchEntity):
     """Switch to enable/disable a DNS rewrite rule (v0.107.68+).
 
     For AdGuard Home versions < 0.107.68, this switch uses a fallback
     mechanism of deleting and re-adding the rewrite rule.
     """
 
+    coordinator: AdGuardHomeDataUpdateCoordinator
     _attr_has_entity_name = True
     _attr_icon = "mdi:dns"
 
@@ -398,7 +396,7 @@ class AdGuardDnsRewriteSwitch(
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional state attributes."""
-        attrs = {
+        attrs: dict[str, Any] = {
             "domain": self._domain,
             "answer": self._answer,
         }

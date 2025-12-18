@@ -33,32 +33,24 @@ async def create_client_entities(
     if coordinator.data.clients:
         for client_data in coordinator.data.clients:
             client = ClientConfig.from_dict(client_data)
-            
+
             # Client filtering switch
-            entities.append(
-                AdGuardClientFilteringSwitch(coordinator, client.name)
-            )
-            
+            entities.append(AdGuardClientFilteringSwitch(coordinator, client.name))
+
             # Client parental control switch
-            entities.append(
-                AdGuardClientParentalSwitch(coordinator, client.name)
-            )
-            
+            entities.append(AdGuardClientParentalSwitch(coordinator, client.name))
+
             # Client safe browsing switch
-            entities.append(
-                AdGuardClientSafeBrowsingSwitch(coordinator, client.name)
-            )
-            
+            entities.append(AdGuardClientSafeBrowsingSwitch(coordinator, client.name))
+
             # Client safe search switch
-            entities.append(
-                AdGuardClientSafeSearchSwitch(coordinator, client.name)
-            )
-            
+            entities.append(AdGuardClientSafeSearchSwitch(coordinator, client.name))
+
             # Client use global settings switch
             entities.append(
                 AdGuardClientUseGlobalSettingsSwitch(coordinator, client.name)
             )
-            
+
             # Client use global blocked services switch
             entities.append(
                 AdGuardClientUseGlobalBlockedServicesSwitch(coordinator, client.name)
@@ -67,10 +59,10 @@ async def create_client_entities(
     return entities
 
 
-class AdGuardClientBaseSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
-):
+class AdGuardClientBaseSwitch(CoordinatorEntity, SwitchEntity):
     """Base class for per-client switches."""
+
+    coordinator: AdGuardHomeDataUpdateCoordinator
 
     _attr_has_entity_name = True
 
@@ -94,17 +86,22 @@ class AdGuardClientBaseSwitch(
         """Get client data from coordinator."""
         if self.coordinator.data is None:
             return None
-        
+
         for client in self.coordinator.data.clients:
             if client.get("name") == self._client_name:
-                return client
+                return dict(client)
         return None
 
     @property
     def device_info(self) -> DeviceInfo:
         """Return device information for this client."""
         return DeviceInfo(
-            identifiers={(DOMAIN, f"{self.coordinator.config_entry.entry_id}_{self._client_name}")},
+            identifiers={
+                (
+                    DOMAIN,
+                    f"{self.coordinator.config_entry.entry_id}_{self._client_name}",
+                )
+            },
             name=f"AdGuard Client: {self._client_name}",
             manufacturer="AdGuard",
             model="Client",
@@ -114,7 +111,9 @@ class AdGuardClientBaseSwitch(
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success and self._get_client_data() is not None
+        return (
+            self.coordinator.last_update_success and self._get_client_data() is not None
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -122,7 +121,7 @@ class AdGuardClientBaseSwitch(
         client_data = self._get_client_data()
         if client_data is None:
             return {}
-        
+
         return {
             "client_name": self._client_name,
             "client_ids": client_data.get("ids", []),
@@ -190,7 +189,7 @@ class AdGuardClientFilteringSwitch(AdGuardClientBaseSwitch):
         client_data = self._get_client_data()
         if client_data is None:
             return None
-        return client_data.get("filtering_enabled", True)
+        return bool(client_data.get("filtering_enabled", True))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable filtering for this client."""
@@ -223,7 +222,7 @@ class AdGuardClientParentalSwitch(AdGuardClientBaseSwitch):
         client_data = self._get_client_data()
         if client_data is None:
             return None
-        return client_data.get("parental_enabled", False)
+        return bool(client_data.get("parental_enabled", False))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable parental control for this client."""
@@ -256,7 +255,7 @@ class AdGuardClientSafeBrowsingSwitch(AdGuardClientBaseSwitch):
         client_data = self._get_client_data()
         if client_data is None:
             return None
-        return client_data.get("safebrowsing_enabled", False)
+        return bool(client_data.get("safebrowsing_enabled", False))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable safe browsing for this client."""
@@ -289,7 +288,7 @@ class AdGuardClientSafeSearchSwitch(AdGuardClientBaseSwitch):
         client_data = self._get_client_data()
         if client_data is None:
             return None
-        return client_data.get("safesearch_enabled", False)
+        return bool(client_data.get("safesearch_enabled", False))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable safe search for this client."""
@@ -322,7 +321,7 @@ class AdGuardClientUseGlobalSettingsSwitch(AdGuardClientBaseSwitch):
         client_data = self._get_client_data()
         if client_data is None:
             return None
-        return client_data.get("use_global_settings", True)
+        return bool(client_data.get("use_global_settings", True))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable global settings for this client."""
@@ -357,7 +356,7 @@ class AdGuardClientUseGlobalBlockedServicesSwitch(AdGuardClientBaseSwitch):
         client_data = self._get_client_data()
         if client_data is None:
             return None
-        return client_data.get("use_global_blocked_services", True)
+        return bool(client_data.get("use_global_blocked_services", True))
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable global blocked services for this client."""

@@ -5,7 +5,12 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigFlow, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlowWithConfigEntry,
+)
 from homeassistant.const import (
     CONF_HOST,
     CONF_PASSWORD,
@@ -16,7 +21,6 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
 )
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api.client import (
@@ -69,12 +73,14 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(
-        config_entry,
+        config_entry: ConfigEntry,
     ) -> AdGuardHomeOptionsFlow:
         """Get the options flow for this handler."""
         return AdGuardHomeOptionsFlow(config_entry)
 
-    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> FlowResult:
+    async def async_step_dhcp(
+        self, discovery_info: DhcpServiceInfo
+    ) -> ConfigFlowResult:
         """Handle DHCP discovery.
 
         This is called when registered_devices is true and an already-configured
@@ -100,7 +106,7 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_discovery_confirm(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle user confirmation of discovered device."""
         errors: dict[str, str] = {}
 
@@ -177,7 +183,7 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -227,13 +233,13 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_reauth(self, entry_data: dict[str, Any]) -> FlowResult:
+    async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Handle reauthorization flow."""
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Handle reauthorization confirmation."""
         errors: dict[str, str] = {}
 
@@ -284,16 +290,12 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
-class AdGuardHomeOptionsFlow(OptionsFlow):
+class AdGuardHomeOptionsFlow(OptionsFlowWithConfigEntry):
     """Handle options flow for AdGuard Home Extended."""
-
-    def __init__(self, config_entry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)

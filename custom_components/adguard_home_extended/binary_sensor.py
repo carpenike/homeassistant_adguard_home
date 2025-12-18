@@ -67,11 +67,10 @@ async def async_setup_entry(
     )
 
 
-class AdGuardHomeBinarySensor(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], BinarySensorEntity
-):
+class AdGuardHomeBinarySensor(CoordinatorEntity, BinarySensorEntity):
     """Representation of an AdGuard Home binary sensor."""
 
+    coordinator: AdGuardHomeDataUpdateCoordinator
     entity_description: AdGuardHomeBinarySensorEntityDescription
     _attr_has_entity_name = True
 

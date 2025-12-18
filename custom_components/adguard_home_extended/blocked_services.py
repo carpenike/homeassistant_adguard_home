@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -160,11 +161,10 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class AdGuardBlockedServiceSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
-):
+class AdGuardBlockedServiceSwitch(CoordinatorEntity, SwitchEntity):
     """Switch to toggle blocking of a specific service."""
 
+    coordinator: AdGuardHomeDataUpdateCoordinator
     _attr_has_entity_name = True
 
     def __init__(
@@ -190,7 +190,8 @@ class AdGuardBlockedServiceSwitch(
         """Get the icon for a service based on its category."""
         for _cat_id, category_data in SERVICE_CATEGORIES.items():
             if service_id in category_data["services"]:
-                return category_data["icon"]
+                icon = category_data["icon"]
+                return str(icon)
         return "mdi:block-helper"
 
     @property
@@ -206,14 +207,14 @@ class AdGuardBlockedServiceSwitch(
         return self._service_id in self.coordinator.data.blocked_services
 
     @property
-    def device_info(self) -> dict[str, Any]:
+    def device_info(self) -> DeviceInfo:
         """Return device information."""
-        return {
-            "identifiers": {(DOMAIN, self.coordinator.config_entry.entry_id)},
-            "name": "AdGuard Home",
-            "manufacturer": "AdGuard",
-            "model": "AdGuard Home",
-        }
+        return DeviceInfo(
+            identifiers={(DOMAIN, self.coordinator.config_entry.entry_id)},
+            name="AdGuard Home",
+            manufacturer="AdGuard",
+            model="AdGuard Home",
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

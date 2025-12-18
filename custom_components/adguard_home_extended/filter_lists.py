@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+from collections.abc import Callable
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
@@ -25,11 +26,10 @@ def _get_filter_unique_id(url: str, whitelist: bool = False) -> str:
     return prefix + hashlib.md5(url.encode()).hexdigest()[:8]
 
 
-class FilterListSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
-):
+class FilterListSwitch(CoordinatorEntity, SwitchEntity):
     """Switch to enable/disable a filter list."""
 
+    coordinator: AdGuardHomeDataUpdateCoordinator
     _attr_has_entity_name = True
 
     def __init__(
@@ -68,7 +68,7 @@ class FilterListSwitch(
         filter_data = self._get_filter_data()
         if filter_data is None:
             return None
-        return filter_data.get("enabled", False)
+        return bool(filter_data.get("enabled", False))
 
     @property
     def available(self) -> bool:
@@ -107,7 +107,7 @@ class FilterListSwitch(
 
         for filter_data in filters:
             if filter_data.get("url") == self._filter_url:
-                return filter_data
+                return dict(filter_data)
 
         return None
 
@@ -142,7 +142,7 @@ class FilterListEntityManager:
         self._coordinator = coordinator
         self._async_add_entities = async_add_entities
         self._tracked_filters: set[str] = set()
-        self._unsubscribe: callback | None = None
+        self._unsubscribe: Callable[[], None] | None = None
 
     async def async_setup(self) -> None:
         """Set up the filter list entity manager."""

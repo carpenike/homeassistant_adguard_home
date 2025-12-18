@@ -1,7 +1,6 @@
 """AdGuard Home API client."""
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from base64 import b64encode
@@ -174,7 +173,7 @@ class AdGuardHomeClient:
 
                 return json.loads(content)
 
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             raise AdGuardHomeConnectionError(
                 f"Request to {endpoint} timed out after {self._timeout.total}s"
             ) from err
@@ -435,9 +434,10 @@ class AdGuardHomeClient:
         data = await self._get(API_BLOCKED_SERVICES_LIST)
         # New format returns {"ids": [...], "schedule": {...}}
         if isinstance(data, dict):
-            return data.get("ids", [])
+            ids = data.get("ids", [])
+            return list(ids) if ids else []
         # Old format returns just a list
-        return data if isinstance(data, list) else []
+        return list(data) if isinstance(data, list) else []
 
     async def get_blocked_services_with_schedule(self) -> dict[str, Any]:
         """Get blocked services with schedule info.
@@ -555,7 +555,8 @@ class AdGuardHomeClient:
             query_parts.append(f"response_status={response_status}")
         query_string = "&".join(query_parts)
         data = await self._get(f"{API_QUERYLOG}?{query_string}")
-        return data.get("data", []) if data else []
+        result = data.get("data", []) if data else []
+        return list(result) if result else []
 
     # DHCP
     async def get_dhcp_status(self) -> DhcpStatus:

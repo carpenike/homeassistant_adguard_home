@@ -1,8 +1,14 @@
 # AdGuard Home Extended for Home Assistant
 
-[![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
-[![GitHub Release](https://img.shields.io/github/release/carpenike/homeassistant_adguard_home.svg)](https://github.com/carpenike/homeassistant_adguard_home/releases)
-[![License](https://img.shields.io/github/license/carpenike/homeassistant_adguard_home.svg)](LICENSE)
+<p align="center">
+  <img src="images/logo.png" alt="AdGuard Home Extended Logo" width="200">
+</p>
+
+<p align="center">
+  <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg" alt="HACS Badge"></a>
+  <a href="https://github.com/carpenike/homeassistant_adguard_home/releases"><img src="https://img.shields.io/github/release/carpenike/homeassistant_adguard_home.svg" alt="GitHub Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/carpenike/homeassistant_adguard_home.svg" alt="License"></a>
+</p>
 
 A custom Home Assistant integration that provides **extended functionality** for AdGuard Home beyond the official core integration. Control DNS filtering, manage blocked services, monitor query statistics, and configure per-client settings—all from Home Assistant.
 

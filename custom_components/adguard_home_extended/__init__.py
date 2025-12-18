@@ -2,10 +2,11 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     CONF_HOST,
     CONF_PASSWORD,
@@ -23,10 +24,8 @@ from .const import DOMAIN
 from .coordinator import AdGuardHomeDataUpdateCoordinator
 
 if TYPE_CHECKING:  # pragma: no cover
-    from homeassistant.config_entries import ConfigEntry
-
     # Type alias for typed ConfigEntry with runtime_data
-    AdGuardHomeConfigEntry = ConfigEntry[AdGuardHomeDataUpdateCoordinator]
+    AdGuardHomeConfigEntry = ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -81,12 +80,12 @@ def _get_coordinator(
     if entry_id:
         for entry in entries:
             if entry.entry_id == entry_id:
-                return entry.runtime_data
+                return cast(AdGuardHomeDataUpdateCoordinator, entry.runtime_data)
         raise HomeAssistantError(f"AdGuard Home instance {entry_id} not found")
 
     # If only one instance, use it; otherwise require entry_id
     if len(entries) == 1:
-        return entries[0].runtime_data
+        return cast(AdGuardHomeDataUpdateCoordinator, entries[0].runtime_data)
 
     raise HomeAssistantError(
         "Multiple AdGuard Home instances configured. Please specify entry_id."
@@ -333,7 +332,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         await coordinator.async_request_refresh()
 
     # Schema with optional entry_id for multi-instance support
-    entry_id_schema = {vol.Optional(ATTR_ENTRY_ID): cv.string}
+    entry_id_field = vol.Optional(ATTR_ENTRY_ID)
 
     hass.services.async_register(
         DOMAIN,
@@ -342,7 +341,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         schema=vol.Schema(
             {
                 vol.Required(ATTR_SERVICES): vol.All(cv.ensure_list, [cv.string]),
-                **entry_id_schema,
+                entry_id_field: cv.string,
             }
         ),
     )
@@ -356,7 +355,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
                 vol.Required(ATTR_NAME): cv.string,
                 vol.Required(ATTR_URL): cv.url,
                 vol.Optional(ATTR_WHITELIST, default=False): cv.boolean,
-                **entry_id_schema,
+                entry_id_field: cv.string,
             }
         ),
     )
@@ -369,7 +368,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
             {
                 vol.Required(ATTR_URL): cv.url,
                 vol.Optional(ATTR_WHITELIST, default=False): cv.boolean,
-                **entry_id_schema,
+                entry_id_field: cv.string,
             }
         ),
     )
@@ -378,7 +377,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_REFRESH_FILTERS,
         handle_refresh_filters,
-        schema=vol.Schema({**entry_id_schema}),
+        schema=vol.Schema({entry_id_field: cv.string}),
     )
 
     hass.services.async_register(
@@ -389,7 +388,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
             {
                 vol.Required(ATTR_CLIENT_NAME): cv.string,
                 vol.Required(ATTR_SERVICES): vol.All(cv.ensure_list, [cv.string]),
-                **entry_id_schema,
+                entry_id_field: cv.string,
             }
         ),
     )
@@ -402,7 +401,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
             {
                 vol.Required(ATTR_DOMAIN): cv.string,
                 vol.Required(ATTR_ANSWER): cv.string,
-                **entry_id_schema,
+                entry_id_field: cv.string,
             }
         ),
     )
@@ -415,7 +414,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
             {
                 vol.Required(ATTR_DOMAIN): cv.string,
                 vol.Required(ATTR_ANSWER): cv.string,
-                **entry_id_schema,
+                entry_id_field: cv.string,
             }
         ),
     )
@@ -429,7 +428,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
                 vol.Required(ATTR_DOMAIN): cv.string,
                 vol.Optional(ATTR_CLIENT): cv.string,
                 vol.Optional(ATTR_QTYPE): cv.string,
-                **entry_id_schema,
+                entry_id_field: cv.string,
             }
         ),
         supports_response=True,
@@ -449,7 +448,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
                 ),
                 vol.Optional(ATTR_SEARCH): cv.string,
                 vol.Optional(ATTR_RESPONSE_STATUS): vol.In(["all", "filtered"]),
-                **entry_id_schema,
+                entry_id_field: cv.string,
             }
         ),
         supports_response=True,
@@ -459,14 +458,14 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN,
         SERVICE_CLEAR_QUERY_LOG,
         handle_clear_query_log,
-        schema=vol.Schema({**entry_id_schema}),
+        schema=vol.Schema({entry_id_field: cv.string}),
     )
 
     hass.services.async_register(
         DOMAIN,
         SERVICE_RESET_STATS,
         handle_reset_stats,
-        schema=vol.Schema({**entry_id_schema}),
+        schema=vol.Schema({entry_id_field: cv.string}),
     )
 
 
