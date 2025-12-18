@@ -22,9 +22,9 @@ class TestDnsRewriteSensor:
         """Test DNS rewrites count value function."""
         data = AdGuardHomeData()
         data.rewrites = [
-            DnsRewrite(domain="ads.example.com", answer="0.0.0.0"),
-            DnsRewrite(domain="tracker.example.com", answer="0.0.0.0"),
-            DnsRewrite(domain="custom.local", answer="192.168.1.100"),
+            DnsRewrite(domain="ads.example.com", answer="0.0.0.0", enabled=True),
+            DnsRewrite(domain="tracker.example.com", answer="0.0.0.0", enabled=True),
+            DnsRewrite(domain="custom.local", answer="192.168.1.100", enabled=True),
         ]
 
         sensor = next(s for s in SENSOR_TYPES if s.key == "dns_rewrites_count")
@@ -41,8 +41,8 @@ class TestDnsRewriteSensor:
         """Test DNS rewrites attributes function."""
         data = AdGuardHomeData()
         data.rewrites = [
-            DnsRewrite(domain="ads.example.com", answer="0.0.0.0"),
-            DnsRewrite(domain="tracker.example.com", answer="127.0.0.1"),
+            DnsRewrite(domain="ads.example.com", answer="0.0.0.0", enabled=True),
+            DnsRewrite(domain="tracker.example.com", answer="127.0.0.1", enabled=False),
         ]
 
         sensor = next(s for s in SENSOR_TYPES if s.key == "dns_rewrites_count")

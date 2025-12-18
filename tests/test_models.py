@@ -120,7 +120,7 @@ class TestAdGuardHomeStatus:
     """Tests for AdGuardHomeStatus model."""
 
     def test_from_dict(self) -> None:
-        """Test creating status from dict."""
+        """Test creating status from dict with all OpenAPI schema fields."""
         data = {
             "protection_enabled": True,
             "running": True,
@@ -131,6 +131,11 @@ class TestAdGuardHomeStatus:
             "dns_port": 53,
             "http_port": 3000,
             "version": "0.107.43",
+            "language": "en",
+            "protection_disabled_until": "2024-12-31T23:59:59Z",
+            "protection_disabled_duration": 3600000,
+            "dhcp_available": True,
+            "start_time": 1700000000000,
         }
         status = AdGuardHomeStatus.from_dict(data)
 
@@ -143,6 +148,11 @@ class TestAdGuardHomeStatus:
         assert status.dns_port == 53
         assert status.http_port == 3000
         assert status.version == "0.107.43"
+        assert status.language == "en"
+        assert status.protection_disabled_until == "2024-12-31T23:59:59Z"
+        assert status.protection_disabled_duration == 3600000
+        assert status.dhcp_available is True
+        assert status.start_time == 1700000000000
 
     def test_from_dict_defaults(self) -> None:
         """Test creating status from dict with defaults."""
@@ -157,6 +167,11 @@ class TestAdGuardHomeStatus:
         assert status.dns_port == 53
         assert status.http_port == 3000
         assert status.version == ""
+        assert status.language == "en"
+        assert status.protection_disabled_until is None
+        assert status.protection_disabled_duration == 0
+        assert status.dhcp_available is False
+        assert status.start_time == 0.0
 
     def test_from_dict_safesearch_disabled(self) -> None:
         """Test parsing safesearch when disabled."""
@@ -185,8 +200,9 @@ class TestAdGuardHomeStats:
     """Tests for AdGuardHomeStats model."""
 
     def test_from_dict(self) -> None:
-        """Test creating stats from dict."""
+        """Test creating stats from dict with all OpenAPI schema fields."""
         data = {
+            "time_units": "hours",
             "num_dns_queries": 12345,
             "num_blocked_filtering": 1234,
             "num_replaced_safebrowsing": 10,
@@ -196,6 +212,14 @@ class TestAdGuardHomeStats:
             "top_queried_domains": [{"example.com": 100}],
             "top_blocked_domains": [{"ads.example.com": 50}],
             "top_clients": [{"192.168.1.100": 500}],
+            # v0.107.36+ fields
+            "top_upstreams_responses": [{"1.1.1.1": 1000}],
+            "top_upstreams_avg_time": [{"1.1.1.1": 0.025}],
+            # Time-series arrays
+            "dns_queries": [100, 150, 200],
+            "blocked_filtering": [10, 15, 20],
+            "replaced_safebrowsing": [1, 2, 1],
+            "replaced_parental": [0, 1, 0],
         }
         stats = AdGuardHomeStats.from_dict(data)
 
@@ -208,6 +232,17 @@ class TestAdGuardHomeStats:
         assert len(stats.top_queried_domains) == 1
         assert len(stats.top_blocked_domains) == 1
         assert len(stats.top_clients) == 1
+        # v0.107.36+ fields
+        assert stats.time_units == "hours"
+        assert len(stats.top_upstreams_responses) == 1
+        assert stats.top_upstreams_responses[0] == {"1.1.1.1": 1000}
+        assert len(stats.top_upstreams_avg_time) == 1
+        assert stats.top_upstreams_avg_time[0] == {"1.1.1.1": 0.025}
+        # Time-series arrays
+        assert stats.dns_queries_series == [100, 150, 200]
+        assert stats.blocked_filtering_series == [10, 15, 20]
+        assert stats.replaced_safebrowsing_series == [1, 2, 1]
+        assert stats.replaced_parental_series == [0, 1, 0]
 
     def test_from_dict_defaults(self) -> None:
         """Test creating stats from dict with defaults."""
@@ -217,6 +252,11 @@ class TestAdGuardHomeStats:
         assert stats.blocked_filtering == 0
         assert stats.avg_processing_time == 0.0
         assert stats.top_queried_domains == []
+        assert stats.time_units == "hours"
+        assert stats.top_upstreams_responses == []
+        assert stats.top_upstreams_avg_time == []
+        assert stats.dns_queries_series == []
+        assert stats.blocked_filtering_series == []
 
 
 class TestFilteringStatus:
@@ -350,15 +390,54 @@ class TestDnsRewrite:
     """Tests for DnsRewrite model."""
 
     def test_from_dict(self) -> None:
-        """Test creating DNS rewrite from dict."""
+        """Test creating DNS rewrite from dict with all OpenAPI schema fields."""
         data = {
             "domain": "local.example.com",
             "answer": "192.168.1.50",
+            "enabled": True,
         }
         rewrite = DnsRewrite.from_dict(data)
 
         assert rewrite.domain == "local.example.com"
         assert rewrite.answer == "192.168.1.50"
+        assert rewrite.enabled is True
+
+    def test_from_dict_defaults(self) -> None:
+        """Test creating DNS rewrite with defaults (enabled defaults to True)."""
+        data = {
+            "domain": "test.example.com",
+            "answer": "10.0.0.1",
+        }
+        rewrite = DnsRewrite.from_dict(data)
+
+        assert rewrite.domain == "test.example.com"
+        assert rewrite.answer == "10.0.0.1"
+        assert rewrite.enabled is True  # Default for backwards compatibility
+
+    def test_from_dict_disabled(self) -> None:
+        """Test creating disabled DNS rewrite (v0.107.68+)."""
+        data = {
+            "domain": "disabled.example.com",
+            "answer": "0.0.0.0",
+            "enabled": False,
+        }
+        rewrite = DnsRewrite.from_dict(data)
+
+        assert rewrite.domain == "disabled.example.com"
+        assert rewrite.enabled is False
+
+    def test_to_dict(self) -> None:
+        """Test converting DNS rewrite to dict for API request."""
+        rewrite = DnsRewrite(
+            domain="api.example.com",
+            answer="192.168.1.100",
+            enabled=True,
+        )
+        result = rewrite.to_dict()
+
+        assert result["domain"] == "api.example.com"
+        assert result["answer"] == "192.168.1.100"
+        assert result["enabled"] is True
 
 
 class TestDhcpStatus:

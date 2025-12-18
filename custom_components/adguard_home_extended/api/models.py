@@ -48,7 +48,12 @@ class SafeSearchSettings:
 
 @dataclass
 class AdGuardHomeStatus:
-    """AdGuard Home server status."""
+    """AdGuard Home server status.
+
+    Per OpenAPI ServerStatus schema, required fields are:
+    dns_addresses, dns_port, http_port, protection_enabled,
+    protection_disabled_until (nullable), running, version, language.
+    """
 
     protection_enabled: bool
     running: bool
@@ -59,6 +64,11 @@ class AdGuardHomeStatus:
     dns_port: int = 53
     http_port: int = 3000
     version: str = ""
+    language: str = "en"
+    protection_disabled_until: str | None = None
+    protection_disabled_duration: int = 0
+    dhcp_available: bool = False
+    start_time: float = 0.0
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdGuardHomeStatus:
@@ -86,12 +96,22 @@ class AdGuardHomeStatus:
             dns_port=data.get("dns_port", 53),
             http_port=data.get("http_port", 3000),
             version=data.get("version", ""),
+            language=data.get("language", "en"),
+            protection_disabled_until=data.get("protection_disabled_until"),
+            protection_disabled_duration=data.get("protection_disabled_duration", 0),
+            dhcp_available=data.get("dhcp_available", False),
+            start_time=data.get("start_time", 0.0),
         )
 
 
 @dataclass
 class AdGuardHomeStats:
-    """AdGuard Home statistics."""
+    """AdGuard Home statistics.
+
+    Per OpenAPI Stats schema, includes time_units (hours/days enum),
+    num_* counters, avg_processing_time, top_* arrays, and time-series
+    arrays. Fields added in v0.107.36: top_upstreams_responses, top_upstreams_avg_time.
+    """
 
     dns_queries: int = 0
     blocked_filtering: int = 0
@@ -102,6 +122,15 @@ class AdGuardHomeStats:
     top_queried_domains: list[dict[str, int]] = field(default_factory=list)
     top_blocked_domains: list[dict[str, int]] = field(default_factory=list)
     top_clients: list[dict[str, int]] = field(default_factory=list)
+    # Added in v0.107.36
+    top_upstreams_responses: list[dict[str, int]] = field(default_factory=list)
+    top_upstreams_avg_time: list[dict[str, float]] = field(default_factory=list)
+    time_units: str = "hours"
+    # Time-series arrays for graphing
+    dns_queries_series: list[int] = field(default_factory=list)
+    blocked_filtering_series: list[int] = field(default_factory=list)
+    replaced_safebrowsing_series: list[int] = field(default_factory=list)
+    replaced_parental_series: list[int] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdGuardHomeStats:
@@ -116,6 +145,15 @@ class AdGuardHomeStats:
             top_queried_domains=data.get("top_queried_domains", []),
             top_blocked_domains=data.get("top_blocked_domains", []),
             top_clients=data.get("top_clients", []),
+            # v0.107.36+ fields
+            top_upstreams_responses=data.get("top_upstreams_responses", []),
+            top_upstreams_avg_time=data.get("top_upstreams_avg_time", []),
+            time_units=data.get("time_units", "hours"),
+            # Time-series arrays
+            dns_queries_series=data.get("dns_queries", []),
+            blocked_filtering_series=data.get("blocked_filtering", []),
+            replaced_safebrowsing_series=data.get("replaced_safebrowsing", []),
+            replaced_parental_series=data.get("replaced_parental", []),
         )
 
 

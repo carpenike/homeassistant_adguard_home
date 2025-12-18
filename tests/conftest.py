@@ -58,6 +58,9 @@ def mock_adguard_client() -> Generator[AsyncMock, None, None]:
                 dns_port=53,
                 http_port=3000,
                 version="0.107.43",
+                language="en",
+                protection_disabled_until=None,
+                dhcp_available=True,
             )
         )
 
@@ -74,6 +77,10 @@ def mock_adguard_client() -> Generator[AsyncMock, None, None]:
                 top_queried_domains=[{"example.com": 100}, {"google.com": 80}],
                 top_blocked_domains=[{"ads.example.com": 50}, {"tracker.com": 30}],
                 top_clients=[{"192.168.1.100": 500}, {"192.168.1.101": 300}],
+                # v0.107.36+ fields
+                top_upstreams_responses=[{"1.1.1.1": 1000}],
+                top_upstreams_avg_time=[{"1.1.1.1": 0.025}],
+                time_units="hours",
             )
         )
 
