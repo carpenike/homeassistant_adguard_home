@@ -49,7 +49,7 @@ def mock_adguard_client() -> Generator[AsyncMock, None, None]:
     ) as mock_client_class:
         client = mock_client_class.return_value
 
-        # Mock status
+        # Mock status - includes all required fields per OpenAPI ServerStatus schema
         client.get_status = AsyncMock(
             return_value=AdGuardHomeStatus(
                 protection_enabled=True,
@@ -61,7 +61,8 @@ def mock_adguard_client() -> Generator[AsyncMock, None, None]:
             )
         )
 
-        # Mock stats
+        # Mock stats - matches OpenAPI Stats schema structure
+        # Note: Our model uses snake_case property names that map from API's num_* prefixed fields
         client.get_stats = AsyncMock(
             return_value=AdGuardHomeStats(
                 dns_queries=12345,
@@ -76,7 +77,8 @@ def mock_adguard_client() -> Generator[AsyncMock, None, None]:
             )
         )
 
-        # Mock filtering status
+        # Mock filtering status - matches OpenAPI FilterStatus schema
+        # Filter objects require: enabled, id, name, rules_count, url
         client.get_filtering_status = AsyncMock(
             return_value=FilteringStatus(
                 enabled=True,
@@ -87,6 +89,8 @@ def mock_adguard_client() -> Generator[AsyncMock, None, None]:
                         "name": "AdGuard Base",
                         "url": "https://example.com/base.txt",
                         "enabled": True,
+                        "rules_count": 5912,
+                        "last_updated": "2024-01-15T10:30:00Z",
                     }
                 ],
                 whitelist_filters=[],
@@ -94,13 +98,16 @@ def mock_adguard_client() -> Generator[AsyncMock, None, None]:
             )
         )
 
-        # Mock blocked services
+        # Mock blocked services - per OpenAPI BlockedService schema
+        # Required fields: icon_svg, id, name, rules
         client.get_all_blocked_services = AsyncMock(
             return_value=[
-                BlockedService(id="facebook", name="Facebook", icon_svg=""),
-                BlockedService(id="youtube", name="YouTube", icon_svg=""),
-                BlockedService(id="tiktok", name="TikTok", icon_svg=""),
-                BlockedService(id="instagram", name="Instagram", icon_svg=""),
+                BlockedService(id="facebook", name="Facebook", icon_svg="<svg></svg>"),
+                BlockedService(id="youtube", name="YouTube", icon_svg="<svg></svg>"),
+                BlockedService(id="tiktok", name="TikTok", icon_svg="<svg></svg>"),
+                BlockedService(
+                    id="instagram", name="Instagram", icon_svg="<svg></svg>"
+                ),
             ]
         )
         client.get_blocked_services = AsyncMock(return_value=["facebook", "tiktok"])
@@ -110,11 +117,14 @@ def mock_adguard_client() -> Generator[AsyncMock, None, None]:
         client.get_clients = AsyncMock(return_value=[])
         client.update_client = AsyncMock()
 
-        # Mock DHCP
+        # Mock DHCP - matches OpenAPI DhcpStatus schema
+        # Required fields: leases; Optional: enabled, interface_name, v4, v6, static_leases
         client.get_dhcp_status = AsyncMock(
             return_value=DhcpStatus(
                 enabled=False,
+                interface_name="",
                 leases=[],
+                static_leases=[],
             )
         )
 

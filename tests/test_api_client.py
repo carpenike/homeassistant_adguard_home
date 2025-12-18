@@ -178,16 +178,23 @@ class TestAdGuardHomeClient:
     async def test_get_status(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test getting status."""
+        """Test getting status.
+
+        Per OpenAPI ServerStatus schema, required fields are:
+        dns_addresses, dns_port, http_port, protection_enabled,
+        protection_disabled_until (nullable), running, version, language.
+        """
         mock_response = create_mock_response(
             status=200,
             json_data={
                 "protection_enabled": True,
+                "protection_disabled_until": None,
                 "running": True,
                 "dns_addresses": ["192.168.1.1"],
                 "dns_port": 53,
                 "http_port": 3000,
                 "version": "0.107.43",
+                "language": "en",
             },
         )
         mock_session.request.return_value = MockContextManager(mock_response)
@@ -203,19 +210,31 @@ class TestAdGuardHomeClient:
     async def test_get_stats(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test getting statistics."""
+        """Test getting statistics.
+
+        Per OpenAPI Stats schema, includes time_units (hours/days enum),
+        num_* counters, avg_processing_time, top_* arrays, and time-series
+        arrays (dns_queries, blocked_filtering, etc.).
+        """
         mock_response = create_mock_response(
             status=200,
             json_data={
+                "time_units": "hours",
                 "num_dns_queries": 12345,
                 "num_blocked_filtering": 1234,
                 "num_replaced_safebrowsing": 10,
                 "num_replaced_parental": 5,
                 "num_replaced_safesearch": 2,
                 "avg_processing_time": 15.5,
-                "top_queried_domains": [],
-                "top_blocked_domains": [],
-                "top_clients": [],
+                "top_queried_domains": [{"example.com": 100}],
+                "top_blocked_domains": [{"ads.example.com": 50}],
+                "top_clients": [{"192.168.1.100": 500}],
+                "top_upstreams_responses": [{"1.1.1.1": 1000}],
+                "top_upstreams_avg_time": [{"1.1.1.1": 0.025}],
+                "dns_queries": [100, 150, 200],
+                "blocked_filtering": [10, 15, 20],
+                "replaced_safebrowsing": [1, 2, 1],
+                "replaced_parental": [0, 1, 0],
             },
         )
         mock_session.request.return_value = MockContextManager(mock_response)
@@ -377,15 +396,28 @@ class TestAdGuardHomeClient:
     async def test_get_filtering_status(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test getting filtering status."""
+        """Test getting filtering status.
+
+        Per OpenAPI FilterStatus schema, Filter objects require:
+        enabled, id, name, rules_count, url. Optional: last_updated.
+        """
         mock_response = create_mock_response(
             status=200,
             json_data={
                 "enabled": True,
                 "interval": 12,
-                "filters": [],
+                "filters": [
+                    {
+                        "id": 1,
+                        "enabled": True,
+                        "name": "AdGuard DNS filter",
+                        "url": "https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt",
+                        "rules_count": 5912,
+                        "last_updated": "2024-01-15T10:30:00Z",
+                    }
+                ],
                 "whitelist_filters": [],
-                "user_rules": [],
+                "user_rules": ["||example.com^"],
             },
         )
         mock_session.request.return_value = MockContextManager(mock_response)
@@ -395,6 +427,8 @@ class TestAdGuardHomeClient:
         assert isinstance(status, FilteringStatus)
         assert status.enabled is True
         assert status.interval == 12
+        assert len(status.filters) == 1
+        assert status.filters[0]["rules_count"] == 5912
 
     @pytest.mark.asyncio
     async def test_set_filtering_enabled(
@@ -1616,14 +1650,31 @@ class TestApiClientAdditionalMethods:
     async def test_get_all_blocked_services(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test getting all available blocked services."""
+        """Test getting all available blocked services.
+
+        Per OpenAPI schema, BlockedService requires: icon_svg, id, name, rules.
+        Optional: group_id.
+        """
         mock_response = create_mock_response(
             status=200,
             json_data={
                 "blocked_services": [
-                    {"id": "facebook", "name": "Facebook"},
-                    {"id": "twitter", "name": "Twitter"},
-                ]
+                    {
+                        "id": "facebook",
+                        "name": "Facebook",
+                        "icon_svg": "<svg></svg>",
+                        "rules": ["||facebook.com^", "||fbcdn.net^"],
+                        "group_id": "social",
+                    },
+                    {
+                        "id": "twitter",
+                        "name": "Twitter",
+                        "icon_svg": "<svg></svg>",
+                        "rules": ["||twitter.com^", "||x.com^"],
+                        "group_id": "social",
+                    },
+                ],
+                "groups": [{"id": "social"}],
             },
         )
         mock_session.request.return_value = MockContextManager(mock_response)
@@ -1632,6 +1683,8 @@ class TestApiClientAdditionalMethods:
 
         assert len(result) == 2
         assert result[0].id == "facebook"
+        assert result[0].rules == ["||facebook.com^", "||fbcdn.net^"]
+        assert result[0].group_id == "social"
 
     @pytest.mark.asyncio
     async def test_get_blocked_services_old_format(

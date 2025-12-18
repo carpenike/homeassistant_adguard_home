@@ -213,11 +213,17 @@ class AdGuardHomeClient:
 
 @dataclass
 class BlockedService:
-    """AdGuard Home blocked service definition."""
+    """AdGuard Home blocked service definition.
+
+    Per OpenAPI schema, required fields are: icon_svg, id, name, rules.
+    Optional field: group_id (added in newer versions).
+    """
 
     id: str
     name: str
     icon_svg: str = ""
+    rules: list[str] = field(default_factory=list)
+    group_id: str = ""
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> BlockedService:
@@ -226,6 +232,8 @@ class BlockedService:
             id=data.get("id", ""),
             name=data.get("name", ""),
             icon_svg=data.get("icon_svg", ""),
+            rules=data.get("rules", []),
+            group_id=data.get("group_id", ""),
         )
 
 

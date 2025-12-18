@@ -304,17 +304,21 @@ class TestBlockedService:
     """Tests for BlockedService model."""
 
     def test_from_dict(self) -> None:
-        """Test creating blocked service from dict."""
+        """Test creating blocked service from dict with all schema fields."""
         data = {
             "id": "facebook",
             "name": "Facebook",
             "icon_svg": "<svg>...</svg>",
+            "rules": ["||facebook.com^", "||fbcdn.net^"],
+            "group_id": "social",
         }
         service = BlockedService.from_dict(data)
 
         assert service.id == "facebook"
         assert service.name == "Facebook"
         assert service.icon_svg == "<svg>...</svg>"
+        assert service.rules == ["||facebook.com^", "||fbcdn.net^"]
+        assert service.group_id == "social"
 
     def test_from_dict_defaults(self) -> None:
         """Test creating blocked service from dict with defaults."""
@@ -323,6 +327,23 @@ class TestBlockedService:
         assert service.id == ""
         assert service.name == ""
         assert service.icon_svg == ""
+        assert service.rules == []
+        assert service.group_id == ""
+
+    def test_from_dict_minimal(self) -> None:
+        """Test creating blocked service with only required fields."""
+        data = {
+            "id": "youtube",
+            "name": "YouTube",
+            "icon_svg": "<svg></svg>",
+            "rules": ["||youtube.com^"],
+        }
+        service = BlockedService.from_dict(data)
+
+        assert service.id == "youtube"
+        assert service.name == "YouTube"
+        assert service.rules == ["||youtube.com^"]
+        assert service.group_id == ""  # Optional field defaults to empty
 
 
 class TestDnsRewrite:
@@ -344,7 +365,11 @@ class TestDhcpStatus:
     """Tests for DhcpStatus model."""
 
     def test_from_dict(self) -> None:
-        """Test creating DHCP status from dict."""
+        """Test creating DHCP status from dict.
+
+        Per OpenAPI DhcpStatus schema, DhcpLease requires: mac, ip, hostname, expires.
+        DhcpStaticLease requires: mac, ip, hostname.
+        """
         data = {
             "enabled": True,
             "static_leases": [
@@ -359,6 +384,7 @@ class TestDhcpStatus:
                     "mac": "11:22:33:44:55:66",
                     "ip": "192.168.1.101",
                     "hostname": "device2",
+                    "expires": "2024-12-31T23:59:59Z",
                 }
             ],
         }
@@ -366,6 +392,7 @@ class TestDhcpStatus:
 
         assert status.enabled is True
         assert len(status.leases) == 1
+        assert status.leases[0].expires == "2024-12-31T23:59:59Z"
 
     def test_from_dict_defaults(self) -> None:
         """Test creating DHCP status from dict with defaults."""
