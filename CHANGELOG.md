@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2025-12-17
+
+### Added
+
+- Support for entering full URLs in config flow (e.g., `https://adguard.local:8443`)
+  - Automatically extracts host, sets SSL, and configures port from URL scheme
+  - Supports `http://` and `https://` prefixes
+  - Extracts custom ports from URL (e.g., `:8443`)
+
 ## [0.1.0] - 2025-12-17
 
 ### Added
