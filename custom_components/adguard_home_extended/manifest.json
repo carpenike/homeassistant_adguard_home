@@ -5,7 +5,7 @@
   "config_flow": true,
   "dependencies": [],
   "documentation": "https://github.com/carpenike/homeassistant_adguard_home",
-  "homeassistant": "2024.1.0",
+  "homeassistant": "2025.1.0",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/carpenike/homeassistant_adguard_home/issues",
   "loggers": ["custom_components.adguard_home_extended"],

@@ -243,3 +243,178 @@ class TestAdGuardHomeDataUpdateCoordinator:
 
         # Should be called with custom limit
         mock_client.get_query_log.assert_called_once_with(limit=500)
+
+    @pytest.mark.asyncio
+    async def test_dns_info_failure_continues(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that DNS info failure doesn't break update."""
+        mock_client.get_dns_info = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("DNS endpoint unavailable")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        data = await coordinator._async_update_data()
+
+        # Should still have status and stats
+        assert data.status is not None
+        assert data.stats is not None
+        # DNS info should be None
+        assert data.dns_info is None
+
+    @pytest.mark.asyncio
+    async def test_blocked_services_failure_continues(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that blocked services failure doesn't break update."""
+        mock_client.get_blocked_services_with_schedule = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("Services endpoint unavailable")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        data = await coordinator._async_update_data()
+
+        # Should still have status and stats
+        assert data.status is not None
+        assert data.stats is not None
+        # Blocked services should be empty default
+        assert data.blocked_services == []
+
+    @pytest.mark.asyncio
+    async def test_clients_failure_continues(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that clients failure doesn't break update."""
+        mock_client.get_clients = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("Clients endpoint unavailable")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        data = await coordinator._async_update_data()
+
+        # Should still have status and stats
+        assert data.status is not None
+        assert data.stats is not None
+        # Clients should be empty default
+        assert data.clients == []
+
+    @pytest.mark.asyncio
+    async def test_dhcp_failure_continues(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that DHCP failure doesn't break update."""
+        mock_client.get_dhcp_status = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("DHCP endpoint unavailable")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        data = await coordinator._async_update_data()
+
+        # Should still have status and stats
+        assert data.status is not None
+        assert data.stats is not None
+        # DHCP should be None
+        assert data.dhcp is None
+
+    @pytest.mark.asyncio
+    async def test_rewrites_failure_continues(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that rewrites failure doesn't break update."""
+        mock_client.get_rewrites = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("Rewrites endpoint unavailable")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        data = await coordinator._async_update_data()
+
+        # Should still have status and stats
+        assert data.status is not None
+        assert data.stats is not None
+        # Rewrites should be empty default
+        assert data.rewrites == []
+
+    @pytest.mark.asyncio
+    async def test_query_log_failure_continues(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that query log failure doesn't break update."""
+        mock_client.get_query_log = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("Query log endpoint unavailable")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        data = await coordinator._async_update_data()
+
+        # Should still have status and stats
+        assert data.status is not None
+        assert data.stats is not None
+        # Query log should be empty default
+        assert data.query_log == []
+
+    @pytest.mark.asyncio
+    async def test_stats_failure_raises(
+        self, hass: HomeAssistant, mock_entry: MagicMock
+    ) -> None:
+        """Test that stats failure raises UpdateFailed (required endpoint)."""
+        mock_client = AsyncMock()
+        mock_client.get_status = AsyncMock(
+            return_value=AdGuardHomeStatus(
+                protection_enabled=True, running=True, version="0.107.43"
+            )
+        )
+        mock_client.get_stats = AsyncMock(
+            side_effect=AdGuardHomeConnectionError("Stats endpoint unavailable")
+        )
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+
+        with pytest.raises(UpdateFailed, match="Error communicating with AdGuard Home"):
+            await coordinator._async_update_data()
+
+    def test_device_info_unknown_version(
+        self, hass: HomeAssistant, mock_entry: MagicMock
+    ) -> None:
+        """Test device info when version is unknown."""
+        mock_client = AsyncMock()
+
+        mock_entry_with_data = MagicMock()
+        mock_entry_with_data.entry_id = "test_entry"
+        mock_entry_with_data.data = {"host": "192.168.1.1"}
+        mock_entry_with_data.options = {}
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(
+            hass, mock_client, mock_entry_with_data
+        )
+        # Set data without status (simulating no data yet)
+        coordinator.data = None
+
+        device_info = coordinator.device_info
+
+        assert device_info["sw_version"] == "unknown"
+
+    def test_device_info_status_no_version(
+        self, hass: HomeAssistant, mock_entry: MagicMock
+    ) -> None:
+        """Test device info when status exists but version is None."""
+        mock_client = AsyncMock()
+
+        mock_entry_with_data = MagicMock()
+        mock_entry_with_data.entry_id = "test_entry"
+        mock_entry_with_data.data = {"host": "192.168.1.1"}
+        mock_entry_with_data.options = {}
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(
+            hass, mock_client, mock_entry_with_data
+        )
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.status = AdGuardHomeStatus(
+            protection_enabled=True,
+            running=True,
+            version=None,  # Version not available
+        )
+
+        device_info = coordinator.device_info
+
+        # Should handle None version gracefully
+        assert device_info["sw_version"] is None

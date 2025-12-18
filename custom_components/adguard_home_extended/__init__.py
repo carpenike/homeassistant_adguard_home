@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -41,6 +41,8 @@ SERVICE_REFRESH_FILTERS = "refresh_filters"
 SERVICE_SET_CLIENT_BLOCKED_SERVICES = "set_client_blocked_services"
 SERVICE_ADD_DNS_REWRITE = "add_dns_rewrite"
 SERVICE_REMOVE_DNS_REWRITE = "remove_dns_rewrite"
+SERVICE_CHECK_HOST = "check_host"
+SERVICE_GET_QUERY_LOG = "get_query_log"
 
 ATTR_SERVICES = "services"
 ATTR_SCHEDULE = "schedule"
@@ -51,6 +53,12 @@ ATTR_CLIENT_NAME = "client_name"
 ATTR_DOMAIN = "domain"
 ATTR_ANSWER = "answer"
 ATTR_ENTRY_ID = "entry_id"
+ATTR_CLIENT = "client"
+ATTR_QTYPE = "qtype"
+ATTR_LIMIT = "limit"
+ATTR_OFFSET = "offset"
+ATTR_SEARCH = "search"
+ATTR_RESPONSE_STATUS = "response_status"
 
 
 def _get_coordinator(
@@ -229,6 +237,69 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         await coordinator.client.delete_rewrite(domain, answer)
         await coordinator.async_request_refresh()
 
+    async def handle_check_host(call: ServiceCall) -> dict[str, Any]:
+        """Handle the check_host service call.
+
+        Check how a domain would be filtered, optionally for a specific client
+        and query type (v0.107.58+).
+
+        Returns:
+            dict: Filtering result with reason, matching rules, etc.
+        """
+        coordinator = _get_coordinator(hass, call.data.get(ATTR_ENTRY_ID))
+        domain = call.data[ATTR_DOMAIN]
+        client = call.data.get(ATTR_CLIENT)
+        qtype = call.data.get(ATTR_QTYPE)
+
+        result = await coordinator.client.check_host(
+            name=domain,
+            client=client,
+            qtype=qtype,
+        )
+
+        # Fire an event with the result for automations
+        hass.bus.async_fire(
+            f"{DOMAIN}_check_host_result",
+            {
+                "domain": domain,
+                "client": client,
+                "qtype": qtype,
+                "result": result,
+            },
+        )
+
+        return result
+
+    async def handle_get_query_log(call: ServiceCall) -> dict[str, Any]:
+        """Handle the get_query_log service call.
+
+        Retrieve paginated query log entries with optional filtering.
+
+        Returns:
+            dict: Query log entries with pagination metadata.
+        """
+        coordinator = _get_coordinator(hass, call.data.get(ATTR_ENTRY_ID))
+        limit = call.data.get(ATTR_LIMIT, 100)
+        offset = call.data.get(ATTR_OFFSET, 0)
+        search = call.data.get(ATTR_SEARCH)
+        response_status = call.data.get(ATTR_RESPONSE_STATUS)
+
+        entries = await coordinator.client.get_query_log(
+            limit=limit,
+            offset=offset,
+            search=search,
+            response_status=response_status,
+        )
+
+        return {
+            "entries": entries,
+            "count": len(entries),
+            "limit": limit,
+            "offset": offset,
+            "search": search,
+            "response_status": response_status,
+        }
+
     # Schema with optional entry_id for multi-instance support
     entry_id_schema = {vol.Optional(ATTR_ENTRY_ID): cv.string}
 
@@ -317,6 +388,41 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         ),
     )
 
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CHECK_HOST,
+        handle_check_host,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_DOMAIN): cv.string,
+                vol.Optional(ATTR_CLIENT): cv.string,
+                vol.Optional(ATTR_QTYPE): cv.string,
+                **entry_id_schema,
+            }
+        ),
+        supports_response=True,
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_GET_QUERY_LOG,
+        handle_get_query_log,
+        schema=vol.Schema(
+            {
+                vol.Optional(ATTR_LIMIT, default=100): vol.All(
+                    vol.Coerce(int), vol.Range(min=1, max=5000)
+                ),
+                vol.Optional(ATTR_OFFSET, default=0): vol.All(
+                    vol.Coerce(int), vol.Range(min=0)
+                ),
+                vol.Optional(ATTR_SEARCH): cv.string,
+                vol.Optional(ATTR_RESPONSE_STATUS): vol.In(["all", "filtered"]),
+                **entry_id_schema,
+            }
+        ),
+        supports_response=True,
+    )
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
@@ -328,6 +434,14 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         client_manager = hass.data[DOMAIN]["client_managers"].pop(entry.entry_id)
         client_manager.async_unsubscribe()
 
+    # Clean up DnsRewriteEntityManager if it exists
+    if (
+        "rewrite_managers" in hass.data.get(DOMAIN, {})
+        and entry.entry_id in hass.data[DOMAIN]["rewrite_managers"]
+    ):
+        rewrite_manager = hass.data[DOMAIN]["rewrite_managers"].pop(entry.entry_id)
+        rewrite_manager.async_unsubscribe()
+
     if unload_ok := await hass.config_entries.async_unload_platforms(entry, PLATFORMS):
         hass.data[DOMAIN].pop(entry.entry_id, None)
 
@@ -338,10 +452,19 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         ):
             hass.data[DOMAIN].pop("client_managers", None)
 
+        # Clean up empty rewrite_managers dict
+        if (
+            "rewrite_managers" in hass.data.get(DOMAIN, {})
+            and not hass.data[DOMAIN]["rewrite_managers"]
+        ):
+            hass.data[DOMAIN].pop("rewrite_managers", None)
+
         # Unregister services when last instance is removed
-        # Check if there are no more coordinator entries (only client_managers might remain)
+        # Check if there are no more coordinator entries (only managers might remain)
         remaining_entries = {
-            k for k in hass.data.get(DOMAIN, {}).keys() if k != "client_managers"
+            k
+            for k in hass.data.get(DOMAIN, {}).keys()
+            if k not in ("client_managers", "rewrite_managers")
         }
         if not remaining_entries:
             for service in [
@@ -352,6 +475,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 SERVICE_SET_CLIENT_BLOCKED_SERVICES,
                 SERVICE_ADD_DNS_REWRITE,
                 SERVICE_REMOVE_DNS_REWRITE,
+                SERVICE_CHECK_HOST,
+                SERVICE_GET_QUERY_LOG,
             ]:
                 hass.services.async_remove(DOMAIN, service)
 
@@ -376,6 +501,12 @@ async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
             hass.data[DOMAIN]["client_managers"].pop(entry.entry_id, None)
             if not hass.data[DOMAIN]["client_managers"]:
                 del hass.data[DOMAIN]["client_managers"]
+
+        # Remove from rewrite_managers if still present
+        if "rewrite_managers" in hass.data[DOMAIN]:
+            hass.data[DOMAIN]["rewrite_managers"].pop(entry.entry_id, None)
+            if not hass.data[DOMAIN]["rewrite_managers"]:
+                del hass.data[DOMAIN]["rewrite_managers"]
 
         # Clean up domain data if completely empty
         if not hass.data[DOMAIN]:

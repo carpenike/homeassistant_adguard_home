@@ -14,6 +14,7 @@ from ..const import (
     API_BLOCKED_SERVICES_LIST,
     API_BLOCKED_SERVICES_SET,
     API_BLOCKED_SERVICES_UPDATE,
+    API_CHECK_HOST,
     API_CLIENTS,
     API_CLIENTS_ADD,
     API_CLIENTS_DELETE,
@@ -264,6 +265,45 @@ class AdGuardHomeClient:
         """Refresh filters."""
         await self._post(API_FILTERING_REFRESH, {"whitelist": force})
 
+    async def check_host(
+        self,
+        name: str,
+        client: str | None = None,
+        qtype: str | None = None,
+    ) -> dict[str, Any]:
+        """Check how a domain would be filtered.
+
+        Queries the AdGuard Home filtering engine to determine if a domain
+        would be blocked or allowed, and by which filter rules.
+
+        Args:
+            name: The domain name to check (e.g., "example.com").
+            client: Optional client ID to check filtering rules for a specific
+                    client (v0.107.58+). Uses global rules if not specified.
+            qtype: Optional DNS query type (e.g., "A", "AAAA", "CNAME")
+                   to check (v0.107.58+). Defaults to "A" if not specified.
+
+        Returns:
+            dict with filtering result including:
+                - reason: Why the domain was filtered (e.g., "FilteredBlackList")
+                - filter_id: ID of the filter that matched (if blocked)
+                - rule: The exact rule that matched (if any)
+                - rules: List of all matching rules with details
+                - service_name: Blocked service name (if blocked service)
+                - cname: CNAME if the domain is a CNAME record
+                - ip_addrs: List of IP addresses if resolved
+        """
+        # Build query parameters
+        params = [f"name={name}"]
+        if client:
+            params.append(f"client={client}")
+        if qtype:
+            params.append(f"qtype={qtype}")
+
+        endpoint = f"{API_CHECK_HOST}?{'&'.join(params)}"
+        result = await self._get(endpoint)
+        return result if isinstance(result, dict) else {}
+
     # Clients
     async def get_clients(self) -> list[ClientConfig]:
         """Get all clients."""
@@ -427,11 +467,26 @@ class AdGuardHomeClient:
         limit: int = 100,
         offset: int = 0,
         search: str | None = None,
+        response_status: str | None = None,
     ) -> list[dict]:
-        """Get query log entries."""
+        """Get query log entries.
+
+        Args:
+            limit: Maximum number of entries to return.
+            offset: Number of entries to skip.
+            search: Optional search string to filter by domain.
+            response_status: Optional filter by response status (v0.107.68+).
+                - "all": Return all queries (default)
+                - "filtered": Return only filtered/blocked queries
+
+        Returns:
+            List of query log entries.
+        """
         query_parts = [f"limit={limit}", f"offset={offset}"]
         if search:
             query_parts.append(f"search={search}")
+        if response_status:
+            query_parts.append(f"response_status={response_status}")
         query_string = "&".join(query_parts)
         data = await self._get(f"{API_QUERYLOG}?{query_string}")
         return data.get("data", []) if data else []
@@ -591,13 +646,30 @@ class AdGuardHomeClient:
         """Search for clients by ID (v0.107.56+ API).
 
         This replaces the deprecated GET /control/clients/find endpoint.
+        Use this for looking up specific clients when you don't need all clients.
+        For fetching all clients, use get_clients() instead.
 
         Args:
             client_ids: List of client identifiers (IPs, MACs, or names).
 
         Returns:
-            List of client info dicts for found clients.
+            List of client info dicts for found clients. Each dict contains
+            client configuration including name, ids, filtering settings, etc.
         """
         clients_param = [{"id": cid} for cid in client_ids]
         data = await self._post(API_CLIENTS_SEARCH, {"clients": clients_param})
         return data if isinstance(data, list) else []
+
+    async def search_client(self, client_id: str) -> dict[str, Any] | None:
+        """Search for a single client by ID (v0.107.56+ API).
+
+        Convenience method for looking up a single client.
+
+        Args:
+            client_id: Client identifier (IP, MAC, or name).
+
+        Returns:
+            Client info dict if found, None otherwise.
+        """
+        results = await self.search_clients([client_id])
+        return results[0] if results else None

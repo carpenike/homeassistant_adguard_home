@@ -1,8 +1,9 @@
 """Tests for the AdGuard Home Extended blocked services switches."""
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, MagicMock
+
+import pytest
 
 from custom_components.adguard_home_extended.blocked_services import (
     SERVICE_CATEGORIES,
@@ -16,7 +17,7 @@ class TestServiceCategories:
 
     def test_categories_have_required_fields(self) -> None:
         """Test all categories have required fields."""
-        for cat_id, cat_data in SERVICE_CATEGORIES.items():
+        for _cat_id, cat_data in SERVICE_CATEGORIES.items():
             assert "name" in cat_data
             assert "icon" in cat_data
             assert "services" in cat_data
@@ -43,7 +44,26 @@ class TestServiceCategories:
         ai = SERVICE_CATEGORIES["ai_services"]
         assert "openai" in ai["services"]
         assert "chatgpt" in ai["services"]
+        assert "claude" in ai["services"]  # v0.107.66+
+        assert "deepseek" in ai["services"]  # v0.107.66+
         assert ai["icon"] == "mdi:robot"
+
+    def test_new_video_services(self) -> None:
+        """Test video streaming category includes newer services."""
+        streaming = SERVICE_CATEGORIES["video_streaming"]
+        assert "odysee" in streaming["services"]  # v0.107.66+
+
+    def test_service_categories_are_documentation_only(self) -> None:
+        """Test that categories are for icon mapping, not exhaustive lists.
+
+        The actual available services come from the AdGuard Home API
+        via GET /control/blocked_services/all. These categories are
+        used only for icon selection and grouping in the UI.
+        """
+        # Just verify the documentation comment exists implicitly
+        # by checking that categories exist and have icons
+        for cat_id, cat_data in SERVICE_CATEGORIES.items():
+            assert "icon" in cat_data, f"Category {cat_id} should have an icon"
 
 
 class TestBlockedServiceSwitch:

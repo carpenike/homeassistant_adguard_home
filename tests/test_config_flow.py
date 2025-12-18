@@ -306,9 +306,7 @@ class TestOptionsFlow:
         assert query_log_key.default() == DEFAULT_QUERY_LOG_LIMIT
 
     @pytest.mark.asyncio
-    async def test_options_flow_attr_limits_default(
-        self, hass: HomeAssistant
-    ) -> None:
+    async def test_options_flow_attr_limits_default(self, hass: HomeAssistant) -> None:
         """Test options flow shows default attribute limits."""
         mock_entry = MagicMock()
         mock_entry.options = {}  # No options set, should use defaults
@@ -355,6 +353,192 @@ class TestOptionsFlow:
         options_flow = AdGuardHomeConfigFlow.async_get_options_flow(mock_entry)
 
         assert isinstance(options_flow, AdGuardHomeOptionsFlow)
+
+
+class TestReauthFlow:
+    """Tests for the reauth flow."""
+
+    @pytest.fixture
+    def mock_reauth_entry(self) -> MagicMock:
+        """Create a mock config entry for reauth."""
+        entry = MagicMock()
+        entry.data = {
+            "host": "192.168.1.1",
+            "port": 3000,
+            "ssl": False,
+            "verify_ssl": True,
+            "username": "old_user",
+            "password": "old_pass",
+        }
+        entry.unique_id = "192.168.1.1:3000"
+        return entry
+
+    @pytest.mark.asyncio
+    async def test_reauth_step_triggers_confirm(self, hass: HomeAssistant) -> None:
+        """Test reauth step calls reauth_confirm."""
+        flow = AdGuardHomeConfigFlow()
+        flow.hass = hass
+        flow.context = {"source": "reauth"}
+
+        # async_step_reauth should call async_step_reauth_confirm
+        with patch.object(
+            flow, "async_step_reauth_confirm", return_value={"type": "form"}
+        ) as mock_confirm:
+            await flow.async_step_reauth({"host": "192.168.1.1"})
+            mock_confirm.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_reauth_confirm_shows_form(
+        self, hass: HomeAssistant, mock_reauth_entry: MagicMock
+    ) -> None:
+        """Test reauth confirm shows form with no input."""
+        flow = AdGuardHomeConfigFlow()
+        flow.hass = hass
+        flow.context = {"source": "reauth"}
+        flow._get_reauth_entry = MagicMock(return_value=mock_reauth_entry)
+
+        result = await flow.async_step_reauth_confirm()
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "reauth_confirm"
+        assert result["errors"] == {}
+
+    @pytest.mark.asyncio
+    async def test_reauth_confirm_success(
+        self, hass: HomeAssistant, mock_reauth_entry: MagicMock
+    ) -> None:
+        """Test successful reauth updates credentials."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_status = AdGuardHomeStatus(
+                protection_enabled=True, running=True, version="0.107.43"
+            )
+            mock_client.get_status = AsyncMock(return_value=mock_status)
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "reauth"}
+            flow._get_reauth_entry = MagicMock(return_value=mock_reauth_entry)
+
+            # Mock async_update_reload_and_abort
+            flow.async_update_reload_and_abort = MagicMock(
+                return_value={"type": "abort", "reason": "reauth_successful"}
+            )
+
+            result = await flow.async_step_reauth_confirm(
+                user_input={
+                    "username": "new_user",
+                    "password": "new_pass",
+                }
+            )
+
+            assert result["type"] == "abort"
+            assert result["reason"] == "reauth_successful"
+            flow.async_update_reload_and_abort.assert_called_once_with(
+                mock_reauth_entry,
+                data_updates={
+                    "username": "new_user",
+                    "password": "new_pass",
+                },
+            )
+
+    @pytest.mark.asyncio
+    async def test_reauth_confirm_invalid_auth(
+        self, hass: HomeAssistant, mock_reauth_entry: MagicMock
+    ) -> None:
+        """Test reauth with invalid credentials."""
+        from custom_components.adguard_home_extended.api.client import (
+            AdGuardHomeAuthError,
+        )
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(
+                side_effect=AdGuardHomeAuthError("Invalid credentials")
+            )
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "reauth"}
+            flow._get_reauth_entry = MagicMock(return_value=mock_reauth_entry)
+
+            result = await flow.async_step_reauth_confirm(
+                user_input={
+                    "username": "wrong_user",
+                    "password": "wrong_pass",
+                }
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "invalid_auth"}
+
+    @pytest.mark.asyncio
+    async def test_reauth_confirm_connection_error(
+        self, hass: HomeAssistant, mock_reauth_entry: MagicMock
+    ) -> None:
+        """Test reauth with connection error."""
+        from custom_components.adguard_home_extended.api.client import (
+            AdGuardHomeConnectionError,
+        )
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(
+                side_effect=AdGuardHomeConnectionError("Connection failed")
+            )
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "reauth"}
+            flow._get_reauth_entry = MagicMock(return_value=mock_reauth_entry)
+
+            result = await flow.async_step_reauth_confirm(
+                user_input={
+                    "username": "user",
+                    "password": "pass",
+                }
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "cannot_connect"}
+
+    @pytest.mark.asyncio
+    async def test_reauth_confirm_unknown_error(
+        self, hass: HomeAssistant, mock_reauth_entry: MagicMock
+    ) -> None:
+        """Test reauth with unexpected error."""
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(side_effect=RuntimeError("Unexpected"))
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "reauth"}
+            flow._get_reauth_entry = MagicMock(return_value=mock_reauth_entry)
+
+            result = await flow.async_step_reauth_confirm(
+                user_input={
+                    "username": "user",
+                    "password": "pass",
+                }
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "unknown"}
 
 
 # Note: already_configured and reauth tests require full integration setup

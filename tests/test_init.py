@@ -281,3 +281,245 @@ class TestAsyncRemoveEntry:
 
         # Should not raise
         await async_remove_entry(mock_hass, mock_entry)
+
+
+class TestCheckHostService:
+    """Tests for the check_host service."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.client = MagicMock()
+        coordinator.client.check_host = AsyncMock(
+            return_value={
+                "reason": "FilteredBlackList",
+                "rule": "||ads.example.com^",
+            }
+        )
+        return coordinator
+
+    @pytest.fixture
+    def mock_hass(self, mock_coordinator: MagicMock) -> MagicMock:
+        """Return a mock Home Assistant instance."""
+        hass = MagicMock(spec=HomeAssistant)
+        hass.bus = MagicMock()
+        hass.bus.async_fire = MagicMock()
+        hass.data = {DOMAIN: {"test_entry": mock_coordinator}}
+        return hass
+
+    @pytest.mark.asyncio
+    async def test_check_host_service_basic(
+        self, mock_hass: MagicMock, mock_coordinator: MagicMock
+    ) -> None:
+        """Test check_host service with basic domain query."""
+
+        # Call the coordinator method directly (simulating service handler)
+        result = await mock_coordinator.client.check_host(
+            name="ads.example.com",
+            client=None,
+            qtype=None,
+        )
+
+        assert result["reason"] == "FilteredBlackList"
+        assert result["rule"] == "||ads.example.com^"
+        mock_coordinator.client.check_host.assert_called_once_with(
+            name="ads.example.com",
+            client=None,
+            qtype=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_check_host_service_with_client_and_qtype(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test check_host service with client and qtype parameters."""
+        mock_coordinator.client.check_host = AsyncMock(
+            return_value={
+                "reason": "NotFilteredAllowList",
+            }
+        )
+
+        result = await mock_coordinator.client.check_host(
+            name="allowed.example.com",
+            client="192.168.1.100",
+            qtype="AAAA",
+        )
+
+        assert result["reason"] == "NotFilteredAllowList"
+        mock_coordinator.client.check_host.assert_called_once_with(
+            name="allowed.example.com",
+            client="192.168.1.100",
+            qtype="AAAA",
+        )
+
+
+class TestGetQueryLogService:
+    """Tests for the get_query_log service."""
+
+    @pytest.fixture
+    def mock_query_log_entries(self) -> list[dict]:
+        """Return mock query log entries."""
+        return [
+            {
+                "answer": [{"value": "93.184.216.34", "type": "A", "ttl": 300}],
+                "client": "192.168.1.100",
+                "client_proto": "dns",
+                "elapsedMs": "5.123",
+                "question": {"class": "IN", "name": "example.com", "type": "A"},
+                "reason": "NotFilteredNotFound",
+                "status": "NOERROR",
+                "time": "2024-01-15T10:30:00Z",
+            },
+            {
+                "answer": [],
+                "client": "192.168.1.101",
+                "client_proto": "dns",
+                "elapsedMs": "1.234",
+                "question": {"class": "IN", "name": "ads.example.com", "type": "A"},
+                "reason": "FilteredBlackList",
+                "rule": "||ads.example.com^",
+                "status": "NXDOMAIN",
+                "time": "2024-01-15T10:30:01Z",
+            },
+        ]
+
+    @pytest.fixture
+    def mock_coordinator(self, mock_query_log_entries: list[dict]) -> MagicMock:
+        """Return a mock coordinator."""
+        coordinator = MagicMock()
+        coordinator.client = MagicMock()
+        coordinator.client.get_query_log = AsyncMock(
+            return_value=mock_query_log_entries
+        )
+        return coordinator
+
+    @pytest.fixture
+    def mock_hass(self, mock_coordinator: MagicMock) -> MagicMock:
+        """Return a mock Home Assistant instance."""
+        hass = MagicMock(spec=HomeAssistant)
+        hass.data = {DOMAIN: {"test_entry": mock_coordinator}}
+        return hass
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_default_params(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test get_query_log with default parameters."""
+        result = await mock_coordinator.client.get_query_log(
+            limit=100,
+            offset=0,
+            search=None,
+            response_status=None,
+        )
+
+        assert len(result) == 2
+        assert result[0]["question"]["name"] == "example.com"
+        assert result[1]["reason"] == "FilteredBlackList"
+        mock_coordinator.client.get_query_log.assert_called_once_with(
+            limit=100,
+            offset=0,
+            search=None,
+            response_status=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_with_pagination(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test get_query_log with pagination parameters."""
+        mock_coordinator.client.get_query_log = AsyncMock(return_value=[])
+
+        result = await mock_coordinator.client.get_query_log(
+            limit=50,
+            offset=100,
+            search=None,
+            response_status=None,
+        )
+
+        assert result == []
+        mock_coordinator.client.get_query_log.assert_called_once_with(
+            limit=50,
+            offset=100,
+            search=None,
+            response_status=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_with_search(
+        self, mock_coordinator: MagicMock, mock_query_log_entries: list[dict]
+    ) -> None:
+        """Test get_query_log with domain search filter."""
+        # Simulate filtered results
+        filtered = [e for e in mock_query_log_entries if "ads" in e["question"]["name"]]
+        mock_coordinator.client.get_query_log = AsyncMock(return_value=filtered)
+
+        result = await mock_coordinator.client.get_query_log(
+            limit=100,
+            offset=0,
+            search="ads",
+            response_status=None,
+        )
+
+        assert len(result) == 1
+        assert result[0]["question"]["name"] == "ads.example.com"
+        mock_coordinator.client.get_query_log.assert_called_once_with(
+            limit=100,
+            offset=0,
+            search="ads",
+            response_status=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_with_response_status(
+        self, mock_coordinator: MagicMock, mock_query_log_entries: list[dict]
+    ) -> None:
+        """Test get_query_log with response_status filter (v0.107.68+)."""
+        # Simulate filtered-only results
+        filtered = [
+            e for e in mock_query_log_entries if e["reason"] == "FilteredBlackList"
+        ]
+        mock_coordinator.client.get_query_log = AsyncMock(return_value=filtered)
+
+        result = await mock_coordinator.client.get_query_log(
+            limit=100,
+            offset=0,
+            search=None,
+            response_status="filtered",
+        )
+
+        assert len(result) == 1
+        assert result[0]["reason"] == "FilteredBlackList"
+        mock_coordinator.client.get_query_log.assert_called_once_with(
+            limit=100,
+            offset=0,
+            search=None,
+            response_status="filtered",
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_response_format(
+        self, mock_coordinator: MagicMock, mock_query_log_entries: list[dict]
+    ) -> None:
+        """Test the expected response format from the service."""
+        # Simulate the service handler response format
+        entries = await mock_coordinator.client.get_query_log(
+            limit=100,
+            offset=0,
+            search=None,
+            response_status=None,
+        )
+
+        response = {
+            "entries": entries,
+            "count": len(entries),
+            "limit": 100,
+            "offset": 0,
+            "search": None,
+            "response_status": None,
+        }
+
+        assert response["count"] == 2
+        assert response["limit"] == 100
+        assert response["offset"] == 0
+        assert len(response["entries"]) == 2

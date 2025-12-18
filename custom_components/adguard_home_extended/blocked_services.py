@@ -15,48 +15,111 @@ from .coordinator import AdGuardHomeDataUpdateCoordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-# Popular service categories for organization
+# Popular service categories for organization and icon mapping.
+# NOTE: This is NOT an exhaustive list - available services are fetched
+# dynamically from AdGuard Home via GET /control/blocked_services/all.
+# This list is used only for icon selection and category grouping.
+# AdGuard Home regularly adds new services (e.g., v0.107.66 added ChatGPT,
+# Claude, DeepSeek, Odysee) - they will appear automatically.
 SERVICE_CATEGORIES = {
     "social_media": {
         "name": "Social Media",
         "icon": "mdi:account-group",
         "services": [
-            "facebook", "instagram", "twitter", "tiktok", "snapchat",
-            "pinterest", "linkedin", "reddit", "tumblr", "vk",
-            "ok", "weibo", "qq", "wechat"
+            "facebook",
+            "instagram",
+            "twitter",
+            "tiktok",
+            "snapchat",
+            "pinterest",
+            "linkedin",
+            "reddit",
+            "tumblr",
+            "vk",
+            "ok",
+            "weibo",
+            "qq",
+            "wechat",
+            "threads",
+            "mastodon",
+            "bluesky",
         ],
     },
     "video_streaming": {
         "name": "Video Streaming",
         "icon": "mdi:video",
         "services": [
-            "youtube", "netflix", "amazon_video", "disneyplus", "hulu",
-            "hbomax", "peacock", "paramount_plus", "twitch", "vimeo",
-            "dailymotion", "9gag", "iqiyi", "bilibili"
+            "youtube",
+            "netflix",
+            "amazon_video",
+            "disneyplus",
+            "hulu",
+            "hbomax",
+            "peacock",
+            "paramount_plus",
+            "twitch",
+            "vimeo",
+            "dailymotion",
+            "9gag",
+            "iqiyi",
+            "bilibili",
+            "odysee",
+            "rumble",
+            "nebula",
         ],
     },
     "messaging": {
         "name": "Messaging",
         "icon": "mdi:message",
         "services": [
-            "whatsapp", "telegram", "signal", "viber", "discord",
-            "skype", "slack", "teams", "zoom", "line"
+            "whatsapp",
+            "telegram",
+            "signal",
+            "viber",
+            "discord",
+            "skype",
+            "slack",
+            "teams",
+            "zoom",
+            "line",
+            "matrix",
         ],
     },
     "gaming": {
         "name": "Gaming",
         "icon": "mdi:gamepad-variant",
         "services": [
-            "steam", "epicgames", "origin", "ubisoft", "roblox",
-            "minecraft", "playstation", "xbox", "nintendo", "twitch"
+            "steam",
+            "epicgames",
+            "origin",
+            "ubisoft",
+            "roblox",
+            "minecraft",
+            "playstation",
+            "xbox",
+            "nintendo",
+            "twitch",
+            "ea",
+            "riot_games",
+            "blizzard",
         ],
     },
     "ai_services": {
         "name": "AI Services",
         "icon": "mdi:robot",
         "services": [
-            "openai", "chatgpt", "claude", "bard", "bing_ai",
-            "midjourney", "copilot", "perplexity"
+            "openai",
+            "chatgpt",
+            "claude",
+            "bard",
+            "bing_ai",
+            "midjourney",
+            "copilot",
+            "perplexity",
+            "deepseek",
+            "gemini",
+            "anthropic",
+            "huggingface",
         ],
     },
     "adult": {
@@ -112,7 +175,9 @@ class AdGuardBlockedServiceSwitch(
         super().__init__(coordinator)
         self._service_id = service_id
         self._service_name = service_name
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_blocked_{service_id}"
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_blocked_{service_id}"
+        )
         self._attr_translation_key = "blocked_service"
         self._attr_translation_placeholders = {"service_name": service_name}
 
@@ -121,7 +186,7 @@ class AdGuardBlockedServiceSwitch(
 
     def _get_service_icon(self, service_id: str) -> str:
         """Get the icon for a service based on its category."""
-        for category_data in SERVICE_CATEGORIES.values():
+        for _cat_id, category_data in SERVICE_CATEGORIES.items():
             if service_id in category_data["services"]:
                 return category_data["icon"]
         return "mdi:block-helper"
@@ -152,7 +217,7 @@ class AdGuardBlockedServiceSwitch(
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return extra state attributes."""
         category = None
-        for cat_id, cat_data in SERVICE_CATEGORIES.items():
+        for cat_data in SERVICE_CATEGORIES.values():
             if self._service_id in cat_data["services"]:
                 category = cat_data["name"]
                 break

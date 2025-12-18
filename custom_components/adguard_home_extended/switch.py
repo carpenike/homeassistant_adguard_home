@@ -1,6 +1,7 @@
 """Switch platform for AdGuard Home Extended."""
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
@@ -12,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api.client import AdGuardHomeClient
+from .api.models import DnsRewrite
 from .const import DOMAIN
 from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 
@@ -97,12 +99,20 @@ async def async_setup_entry(
     client_manager = ClientEntityManager(coordinator, async_add_entities)
     await client_manager.async_setup()
 
-    # Store manager reference for cleanup
+    # Set up dynamic DNS rewrite entity manager
+    rewrite_manager = DnsRewriteEntityManager(coordinator, async_add_entities)
+    await rewrite_manager.async_setup()
+
+    # Store manager references for cleanup
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
     if "client_managers" not in hass.data[DOMAIN]:
         hass.data[DOMAIN]["client_managers"] = {}
     hass.data[DOMAIN]["client_managers"][entry.entry_id] = client_manager
+
+    if "rewrite_managers" not in hass.data[DOMAIN]:
+        hass.data[DOMAIN]["rewrite_managers"] = {}
+    hass.data[DOMAIN]["rewrite_managers"][entry.entry_id] = rewrite_manager
 
 
 class ClientEntityManager:
@@ -225,4 +235,150 @@ class AdGuardHomeSwitch(
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         await self.entity_description.turn_off_fn(self.coordinator.client)
+        await self.coordinator.async_request_refresh()
+
+
+def _get_rewrite_unique_id(domain: str, answer: str) -> str:
+    """Generate a unique ID for a DNS rewrite rule.
+
+    Uses a hash of domain+answer to create a stable, URL-safe unique ID.
+    """
+    key = f"{domain}:{answer}"
+    return hashlib.sha256(key.encode()).hexdigest()[:16]
+
+
+class DnsRewriteEntityManager:
+    """Manage dynamic DNS rewrite switch entities."""
+
+    def __init__(
+        self,
+        coordinator: AdGuardHomeDataUpdateCoordinator,
+        async_add_entities: AddEntitiesCallback,
+    ) -> None:
+        """Initialize the DNS rewrite entity manager."""
+        self._coordinator = coordinator
+        self._async_add_entities = async_add_entities
+        self._tracked_rewrites: set[str] = set()  # Set of unique_ids
+        self._unsubscribe: Callable[[], None] | None = None
+
+    async def async_setup(self) -> None:
+        """Set up the DNS rewrite entity manager."""
+        # Create initial entities for existing rewrites
+        await self._async_add_new_rewrite_entities()
+
+        # Subscribe to coordinator updates
+        self._unsubscribe = self._coordinator.async_add_listener(
+            self._handle_coordinator_update
+        )
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle coordinator data updates."""
+        # Schedule the async entity check
+        self._coordinator.hass.async_create_task(self._async_add_new_rewrite_entities())
+
+    async def _async_add_new_rewrite_entities(self) -> None:
+        """Add entities for any new DNS rewrites."""
+        if self._coordinator.data is None or not self._coordinator.data.rewrites:
+            return
+
+        new_entities: list[SwitchEntity] = []
+
+        for rewrite in self._coordinator.data.rewrites:
+            unique_id = _get_rewrite_unique_id(rewrite.domain, rewrite.answer)
+
+            # Skip if we already have an entity for this rewrite
+            if unique_id in self._tracked_rewrites:
+                continue
+
+            new_entities.append(
+                AdGuardDnsRewriteSwitch(
+                    self._coordinator,
+                    rewrite.domain,
+                    rewrite.answer,
+                )
+            )
+            self._tracked_rewrites.add(unique_id)
+
+        # Add new entities if any
+        if new_entities:
+            self._async_add_entities(new_entities)
+
+    def async_unsubscribe(self) -> None:
+        """Unsubscribe from coordinator updates."""
+        if self._unsubscribe:
+            self._unsubscribe()
+            self._unsubscribe = None
+
+
+class AdGuardDnsRewriteSwitch(
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+):
+    """Switch to enable/disable a DNS rewrite rule (v0.107.68+)."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:dns"
+
+    def __init__(
+        self,
+        coordinator: AdGuardHomeDataUpdateCoordinator,
+        domain: str,
+        answer: str,
+    ) -> None:
+        """Initialize the DNS rewrite switch."""
+        super().__init__(coordinator)
+        self._domain = domain
+        self._answer = answer
+        self._attr_unique_id = (
+            f"{coordinator.config_entry.entry_id}_rewrite_"
+            f"{_get_rewrite_unique_id(domain, answer)}"
+        )
+        self._attr_device_info = coordinator.device_info
+
+    @property
+    def name(self) -> str:
+        """Return the name of the switch."""
+        return f"Rewrite {self._domain}"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional state attributes."""
+        return {
+            "domain": self._domain,
+            "answer": self._answer,
+        }
+
+    def _get_rewrite_data(self) -> DnsRewrite | None:
+        """Get the rewrite data from coordinator."""
+        if self.coordinator.data is None:
+            return None
+
+        for rewrite in self.coordinator.data.rewrites:
+            if rewrite.domain == self._domain and rewrite.answer == self._answer:
+                return rewrite
+        return None
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available."""
+        return self._get_rewrite_data() is not None
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the DNS rewrite is enabled."""
+        rewrite = self._get_rewrite_data()
+        return rewrite.enabled if rewrite else None
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Enable the DNS rewrite rule."""
+        await self.coordinator.client.set_rewrite_enabled(
+            self._domain, self._answer, True
+        )
+        await self.coordinator.async_request_refresh()
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Disable the DNS rewrite rule."""
+        await self.coordinator.client.set_rewrite_enabled(
+            self._domain, self._answer, False
+        )
         await self.coordinator.async_request_refresh()

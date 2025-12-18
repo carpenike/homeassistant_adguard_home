@@ -158,8 +158,31 @@ automation:
 
 ## Compatibility
 
-- **Home Assistant**: 2024.1.0 or newer
-- **AdGuard Home**: 0.107.0 or newer
+### Version Requirements
+
+| Component | Minimum Version | Recommended | Notes |
+|-----------|----------------|-------------|-------|
+| **Home Assistant** | 2025.1.0 | 2025.12.0+ | For latest integration patterns |
+| **AdGuard Home** | 0.107.30 | 0.107.69+ | Latest stable (Oct 2025) |
+
+### Feature Availability by AdGuard Home Version
+
+Some features require specific AdGuard Home versions:
+
+| Feature | Required AGH Version | API Endpoint |
+|---------|---------------------|--------------|
+| Basic protection/filtering | 0.107.0+ | `/control/status`, `/control/protection` |
+| Stats and query log config | 0.107.30+ | `/control/stats/config`, `/control/querylog/config` |
+| Ecosia safe search | 0.107.52+ | `/control/safesearch/settings` |
+| Blocked services with schedule | 0.107.56+ | `/control/blocked_services/get` |
+| DNS cache enable/disable | 0.107.65+ | `/control/dns_config` with `cache_enabled` |
+| DNS rewrite enable/disable | 0.107.68+ | `/control/rewrite/update` with `enabled` |
+
+### Integration Version History
+
+| Integration | Min AGH | Min HA | Features Added |
+|-------------|---------|--------|----------------|
+| 0.1.x | 0.107.30 | 2025.1.0 | Initial release with full API support |
 
 ## Contributing
 

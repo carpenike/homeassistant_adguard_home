@@ -11,7 +11,10 @@ set_blocked_services:
         object:
     schedule:
       name: Schedule
-      description: Optional time-based schedule for blocking (v0.107.56+). Format is {"time_zone": "Local", "mon": {"start": 0, "end": 86399999}, ...}. Times are milliseconds from midnight.
+      description: >-
+        Optional time-based schedule for blocking (v0.107.56+).
+        Format is {"time_zone": "Local", "mon": {"start": 0, "end": 86399999}, ...}.
+        Times are milliseconds from midnight.
       required: false
       example: '{"time_zone": "Local", "mon": {"start": 0, "end": 86399999}}'
       selector:
@@ -159,6 +162,98 @@ remove_dns_rewrite:
       example: "0.0.0.0"
       selector:
         text:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
+
+check_host:
+  name: Check Host
+  description: Check how a domain would be filtered by AdGuard Home. Returns filtering result including reason, matching rules, and blocked service info. Optionally filter by client and query type (v0.107.58+).
+  fields:
+    domain:
+      name: Domain
+      description: The domain name to check (e.g., "example.com" or "ads.example.com").
+      required: true
+      example: "doubleclick.net"
+      selector:
+        text:
+    client:
+      name: Client
+      description: Optional client ID to check filtering rules for a specific client. Uses global rules if not specified. Requires AdGuard Home v0.107.58+.
+      required: false
+      example: "192.168.1.100"
+      selector:
+        text:
+    qtype:
+      name: Query Type
+      description: Optional DNS query type to check (e.g., "A", "AAAA", "CNAME", "MX"). Defaults to "A" if not specified. Requires AdGuard Home v0.107.58+.
+      required: false
+      example: "A"
+      selector:
+        select:
+          options:
+            - "A"
+            - "AAAA"
+            - "CNAME"
+            - "MX"
+            - "TXT"
+            - "SRV"
+            - "NS"
+            - "PTR"
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
+
+get_query_log:
+  name: Get Query Log
+  description: Retrieve paginated DNS query log entries. Supports filtering by domain search and response status. Use offset/limit for pagination to traverse large logs.
+  fields:
+    limit:
+      name: Limit
+      description: Maximum number of entries to return (1-5000). Default is 100.
+      required: false
+      default: 100
+      example: 100
+      selector:
+        number:
+          min: 1
+          max: 5000
+          mode: box
+    offset:
+      name: Offset
+      description: Number of entries to skip for pagination. Default is 0 (start from most recent).
+      required: false
+      default: 0
+      example: 0
+      selector:
+        number:
+          min: 0
+          mode: box
+    search:
+      name: Search
+      description: Optional search string to filter by domain name.
+      required: false
+      example: "google.com"
+      selector:
+        text:
+    response_status:
+      name: Response Status
+      description: Filter by response status. "all" returns all queries, "filtered" returns only blocked queries (v0.107.68+).
+      required: false
+      example: "all"
+      selector:
+        select:
+          options:
+            - label: "All queries"
+              value: "all"
+            - label: "Filtered/blocked only"
+              value: "filtered"
     entry_id:
       name: Entry ID
       description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.

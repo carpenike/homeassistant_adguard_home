@@ -530,6 +530,56 @@ class TestAdGuardHomeClient:
         assert result == []
 
     @pytest.mark.asyncio
+    async def test_get_query_log_with_response_status(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting query log with response_status filter (v0.107.68+)."""
+        mock_response = create_mock_response(
+            json_data={
+                "data": [
+                    {"question": "blocked.example.com", "reason": "FilteredBlackList"}
+                ]
+            }
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.get_query_log(limit=100, response_status="filtered")
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        url = call_args[0][1]
+        assert "limit=100" in url
+        assert "response_status=filtered" in url
+        assert result == [
+            {"question": "blocked.example.com", "reason": "FilteredBlackList"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_get_query_log_all_params(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test getting query log with all parameters."""
+        mock_response = create_mock_response(
+            json_data={"data": [{"question": "ads.example.com"}]}
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.get_query_log(
+            limit=50,
+            offset=10,
+            search="ads",
+            response_status="filtered",
+        )
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        url = call_args[0][1]
+        assert "limit=50" in url
+        assert "offset=10" in url
+        assert "search=ads" in url
+        assert "response_status=filtered" in url
+
+    @pytest.mark.asyncio
     async def test_get_dns_info(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
@@ -845,3 +895,146 @@ class TestAdGuardHomeClient:
         json_data = call_args[1]["json"]
         assert json_data["update"]["enabled"] is True
 
+    @pytest.mark.asyncio
+    async def test_check_host_basic(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test checking if a domain would be filtered."""
+        mock_response = create_mock_response(
+            json_data={
+                "reason": "FilteredBlackList",
+                "filter_id": 1,
+                "rule": "||doubleclick.net^",
+                "rules": [{"filter_list_id": 1, "text": "||doubleclick.net^"}],
+            }
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.check_host(name="doubleclick.net")
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "GET"
+        assert "/control/filtering/check_host" in call_args[0][1]
+        assert "name=doubleclick.net" in call_args[0][1]
+        assert result["reason"] == "FilteredBlackList"
+        assert result["rule"] == "||doubleclick.net^"
+
+    @pytest.mark.asyncio
+    async def test_check_host_with_client(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test checking domain filtering for a specific client (v0.107.58+)."""
+        mock_response = create_mock_response(
+            json_data={
+                "reason": "NotFilteredAllowList",
+                "rules": [],
+            }
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.check_host(
+            name="example.com",
+            client="192.168.1.100",
+        )
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        url = call_args[0][1]
+        assert "name=example.com" in url
+        assert "client=192.168.1.100" in url
+        assert result["reason"] == "NotFilteredAllowList"
+
+    @pytest.mark.asyncio
+    async def test_check_host_with_qtype(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test checking domain filtering with query type (v0.107.58+)."""
+        mock_response = create_mock_response(
+            json_data={
+                "reason": "NotFilteredNotFound",
+                "rules": [],
+            }
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.check_host(
+            name="example.com",
+            qtype="AAAA",
+        )
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        url = call_args[0][1]
+        assert "name=example.com" in url
+        assert "qtype=AAAA" in url
+        assert result["reason"] == "NotFilteredNotFound"
+
+    @pytest.mark.asyncio
+    async def test_check_host_with_all_params(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test check_host with domain, client, and qtype parameters."""
+        mock_response = create_mock_response(
+            json_data={
+                "reason": "FilteredBlockedService",
+                "service_name": "youtube",
+            }
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.check_host(
+            name="youtube.com",
+            client="kids-tablet",
+            qtype="A",
+        )
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        url = call_args[0][1]
+        assert "name=youtube.com" in url
+        assert "client=kids-tablet" in url
+        assert "qtype=A" in url
+        assert result["reason"] == "FilteredBlockedService"
+        assert result["service_name"] == "youtube"
+
+    @pytest.mark.asyncio
+    async def test_check_host_returns_empty_dict_on_non_dict(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test that check_host returns empty dict if API returns non-dict."""
+        mock_response = create_mock_response(json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.check_host(name="example.com")
+
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_search_client_found(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test searching for a single client that exists."""
+        mock_response = create_mock_response(
+            json_data=[{"name": "Test Client", "ids": ["192.168.1.100"]}]
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.search_client("192.168.1.100")
+
+        assert result is not None
+        assert result["name"] == "Test Client"
+        call_args = mock_session.request.call_args
+        assert call_args[1]["json"]["clients"] == [{"id": "192.168.1.100"}]
+
+    @pytest.mark.asyncio
+    async def test_search_client_not_found(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test searching for a single client that doesn't exist."""
+        mock_response = create_mock_response(json_data=[])
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        result = await client.search_client("192.168.1.200")
+
+        assert result is None

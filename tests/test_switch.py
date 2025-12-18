@@ -311,3 +311,207 @@ class TestDnsCacheSwitch:
 
         await dns_cache_desc.turn_off_fn(mock_client)
         mock_client.set_dns_cache_enabled.assert_called_with(False)
+
+
+class TestDnsRewriteSwitch:
+    """Tests for DNS rewrite switch entities."""
+
+    def test_get_rewrite_unique_id(self) -> None:
+        """Test unique ID generation for DNS rewrites."""
+        from custom_components.adguard_home_extended.switch import (
+            _get_rewrite_unique_id,
+        )
+
+        # Same inputs should produce same ID
+        id1 = _get_rewrite_unique_id("example.com", "192.168.1.1")
+        id2 = _get_rewrite_unique_id("example.com", "192.168.1.1")
+        assert id1 == id2
+
+        # Different inputs should produce different IDs
+        id3 = _get_rewrite_unique_id("other.com", "192.168.1.1")
+        assert id1 != id3
+
+        id4 = _get_rewrite_unique_id("example.com", "192.168.1.2")
+        assert id1 != id4
+
+    def test_dns_rewrite_switch_init(self) -> None:
+        """Test DNS rewrite switch initialization."""
+        from unittest.mock import MagicMock
+
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+            _get_rewrite_unique_id,
+        )
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {"identifiers": {("adguard_home_extended", "test")}}
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        expected_unique_id = (
+            f"test_entry_123_rewrite_"
+            f"{_get_rewrite_unique_id('ads.example.com', '0.0.0.0')}"
+        )
+        assert switch._attr_unique_id == expected_unique_id
+        assert switch._domain == "ads.example.com"
+        assert switch._answer == "0.0.0.0"
+
+    def test_dns_rewrite_switch_name(self) -> None:
+        """Test DNS rewrite switch name."""
+        from unittest.mock import MagicMock
+
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        assert switch.name == "Rewrite ads.example.com"
+
+    def test_dns_rewrite_switch_extra_attributes(self) -> None:
+        """Test DNS rewrite switch extra state attributes."""
+        from unittest.mock import MagicMock
+
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        attrs = switch.extra_state_attributes
+        assert attrs["domain"] == "ads.example.com"
+        assert attrs["answer"] == "0.0.0.0"
+
+    def test_dns_rewrite_switch_is_on_enabled(self) -> None:
+        """Test DNS rewrite switch is_on when enabled."""
+        from unittest.mock import MagicMock
+
+        from custom_components.adguard_home_extended.api.models import DnsRewrite
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        data = AdGuardHomeData()
+        data.rewrites = [
+            DnsRewrite(domain="ads.example.com", answer="0.0.0.0", enabled=True),
+        ]
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+        coordinator.data = data
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        assert switch.is_on is True
+        assert switch.available is True
+
+    def test_dns_rewrite_switch_is_on_disabled(self) -> None:
+        """Test DNS rewrite switch is_on when disabled."""
+        from unittest.mock import MagicMock
+
+        from custom_components.adguard_home_extended.api.models import DnsRewrite
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        data = AdGuardHomeData()
+        data.rewrites = [
+            DnsRewrite(domain="ads.example.com", answer="0.0.0.0", enabled=False),
+        ]
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+        coordinator.data = data
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        assert switch.is_on is False
+        assert switch.available is True
+
+    def test_dns_rewrite_switch_not_available_when_missing(self) -> None:
+        """Test DNS rewrite switch unavailable when rewrite is deleted."""
+        from unittest.mock import MagicMock
+
+        from custom_components.adguard_home_extended.api.models import DnsRewrite
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        data = AdGuardHomeData()
+        data.rewrites = [
+            DnsRewrite(domain="other.example.com", answer="0.0.0.0", enabled=True),
+        ]
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+        coordinator.data = data
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        assert switch.available is False
+        assert switch.is_on is None
+
+    @pytest.mark.asyncio
+    async def test_dns_rewrite_switch_turn_on(self) -> None:
+        """Test DNS rewrite switch turn_on."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+        coordinator.client = MagicMock()
+        coordinator.client.set_rewrite_enabled = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        await switch.async_turn_on()
+
+        coordinator.client.set_rewrite_enabled.assert_called_once_with(
+            "ads.example.com", "0.0.0.0", True
+        )
+        coordinator.async_request_refresh.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_dns_rewrite_switch_turn_off(self) -> None:
+        """Test DNS rewrite switch turn_off."""
+        from unittest.mock import AsyncMock, MagicMock
+
+        from custom_components.adguard_home_extended.switch import (
+            AdGuardDnsRewriteSwitch,
+        )
+
+        coordinator = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry_123"
+        coordinator.device_info = {}
+        coordinator.client = MagicMock()
+        coordinator.client.set_rewrite_enabled = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+
+        switch = AdGuardDnsRewriteSwitch(coordinator, "ads.example.com", "0.0.0.0")
+
+        await switch.async_turn_off()
+
+        coordinator.client.set_rewrite_enabled.assert_called_once_with(
+            "ads.example.com", "0.0.0.0", False
+        )
+        coordinator.async_request_refresh.assert_called_once()
