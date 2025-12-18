@@ -106,6 +106,7 @@ class TestDnsInfo:
         """Test creating DNS info from empty dict uses defaults."""
         dns_info = DnsInfo.from_dict({})
 
+        # cache_enabled defaults to True when cache_size defaults to 4194304 > 0
         assert dns_info.cache_enabled is True
         assert dns_info.cache_size == 4194304
         assert dns_info.cache_ttl_min == 0
@@ -115,6 +116,26 @@ class TestDnsInfo:
         assert dns_info.blocking_mode == "default"
         assert dns_info.edns_cs_enabled is False
         assert dns_info.dnssec_enabled is False
+
+    def test_from_dict_cache_enabled_inferred_from_size(self) -> None:
+        """Test cache_enabled is inferred from cache_size when field missing (pre-v0.107.65)."""
+        # When cache_size > 0, cache is enabled
+        data_with_cache = {"cache_size": 100000000}
+        dns_info = DnsInfo.from_dict(data_with_cache)
+        assert dns_info.cache_enabled is True
+
+        # When cache_size = 0, cache is disabled (old method of disabling)
+        data_without_cache = {"cache_size": 0}
+        dns_info = DnsInfo.from_dict(data_without_cache)
+        assert dns_info.cache_enabled is False
+
+    def test_from_dict_cache_enabled_explicit(self) -> None:
+        """Test explicit cache_enabled takes precedence (v0.107.65+)."""
+        # Explicit cache_enabled=False with non-zero cache_size
+        data = {"cache_enabled": False, "cache_size": 100000000}
+        dns_info = DnsInfo.from_dict(data)
+        assert dns_info.cache_enabled is False
+        assert dns_info.cache_size == 100000000
 
 
 class TestAdGuardHomeStatus:

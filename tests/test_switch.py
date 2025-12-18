@@ -265,55 +265,110 @@ class TestSwitchNoneHandling:
 
 
 class TestDnsCacheSwitch:
-    """Tests for DNS cache switch."""
+    """Tests for DNS cache switch (using AdGuardDnsCacheSwitch class)."""
 
     def test_dns_cache_switch_is_on(self) -> None:
-        """Test DNS cache switch is_on function when enabled."""
-        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+        """Test DNS cache switch is_on when enabled."""
+        from custom_components.adguard_home_extended.switch import AdGuardDnsCacheSwitch
 
-        data = AdGuardHomeData()
-        data.dns_info = DnsInfo(cache_enabled=True)
+        # Create mock coordinator
+        mock_coordinator = MagicMock()
+        mock_coordinator.config_entry.entry_id = "test_entry"
+        mock_coordinator.device_info = {}
+        mock_coordinator.data = AdGuardHomeData()
+        mock_coordinator.data.dns_info = DnsInfo(cache_enabled=True)
 
-        dns_cache_desc = next(d for d in SWITCH_TYPES if d.key == "dns_cache")
-        is_on = dns_cache_desc.is_on_fn(data)
-        assert is_on is True
+        switch = AdGuardDnsCacheSwitch(mock_coordinator)
+        assert switch.is_on is True
 
     def test_dns_cache_switch_is_off(self) -> None:
-        """Test DNS cache switch is_on function when disabled."""
-        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+        """Test DNS cache switch is_on when disabled."""
+        from custom_components.adguard_home_extended.switch import AdGuardDnsCacheSwitch
 
-        data = AdGuardHomeData()
-        data.dns_info = DnsInfo(cache_enabled=False)
+        mock_coordinator = MagicMock()
+        mock_coordinator.config_entry.entry_id = "test_entry"
+        mock_coordinator.device_info = {}
+        mock_coordinator.data = AdGuardHomeData()
+        mock_coordinator.data.dns_info = DnsInfo(cache_enabled=False)
 
-        dns_cache_desc = next(d for d in SWITCH_TYPES if d.key == "dns_cache")
-        is_on = dns_cache_desc.is_on_fn(data)
-        assert is_on is False
+        switch = AdGuardDnsCacheSwitch(mock_coordinator)
+        assert switch.is_on is False
 
     def test_dns_cache_switch_none_dns_info(self) -> None:
         """Test DNS cache switch with None dns_info."""
-        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+        from custom_components.adguard_home_extended.switch import AdGuardDnsCacheSwitch
 
-        data = AdGuardHomeData()  # dns_info is None
+        mock_coordinator = MagicMock()
+        mock_coordinator.config_entry.entry_id = "test_entry"
+        mock_coordinator.device_info = {}
+        mock_coordinator.data = AdGuardHomeData()  # dns_info is None
 
-        dns_cache_desc = next(d for d in SWITCH_TYPES if d.key == "dns_cache")
-        is_on = dns_cache_desc.is_on_fn(data)
-        assert is_on is None
+        switch = AdGuardDnsCacheSwitch(mock_coordinator)
+        assert switch.is_on is None
 
     @pytest.mark.asyncio
-    async def test_dns_cache_toggle(self) -> None:
-        """Test DNS cache switch toggle functions."""
-        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+    async def test_dns_cache_toggle_supported_version(self) -> None:
+        """Test DNS cache switch toggle when version supports cache_enabled."""
+        from custom_components.adguard_home_extended.switch import AdGuardDnsCacheSwitch
 
-        mock_client = AsyncMock()
-        mock_client.set_dns_cache_enabled = AsyncMock()
+        mock_coordinator = MagicMock()
+        mock_coordinator.config_entry.entry_id = "test_entry"
+        mock_coordinator.device_info = {}
+        mock_coordinator.data = AdGuardHomeData()
+        mock_coordinator.data.dns_info = DnsInfo(cache_enabled=True)
+        mock_coordinator.server_version.supports_cache_enabled = True
+        mock_coordinator.client.set_dns_cache_enabled = AsyncMock()
+        mock_coordinator.async_request_refresh = AsyncMock()
 
-        dns_cache_desc = next(d for d in SWITCH_TYPES if d.key == "dns_cache")
+        switch = AdGuardDnsCacheSwitch(mock_coordinator)
 
-        await dns_cache_desc.turn_on_fn(mock_client)
-        mock_client.set_dns_cache_enabled.assert_called_with(True)
+        await switch.async_turn_on()
+        mock_coordinator.client.set_dns_cache_enabled.assert_called_with(True)
 
-        await dns_cache_desc.turn_off_fn(mock_client)
-        mock_client.set_dns_cache_enabled.assert_called_with(False)
+        await switch.async_turn_off()
+        mock_coordinator.client.set_dns_cache_enabled.assert_called_with(False)
+
+    @pytest.mark.asyncio
+    async def test_dns_cache_toggle_unsupported_version(self) -> None:
+        """Test DNS cache switch toggle when version doesn't support cache_enabled."""
+        from custom_components.adguard_home_extended.switch import AdGuardDnsCacheSwitch
+
+        mock_coordinator = MagicMock()
+        mock_coordinator.config_entry.entry_id = "test_entry"
+        mock_coordinator.device_info = {}
+        mock_coordinator.data = AdGuardHomeData()
+        mock_coordinator.data.dns_info = DnsInfo(cache_enabled=True, cache_size=4194304)
+        mock_coordinator.server_version.supports_cache_enabled = False
+        mock_coordinator.client.set_dns_cache_enabled = AsyncMock()
+        mock_coordinator.async_request_refresh = AsyncMock()
+
+        switch = AdGuardDnsCacheSwitch(mock_coordinator)
+
+        # Should not call the API on older versions
+        await switch.async_turn_on()
+        mock_coordinator.client.set_dns_cache_enabled.assert_not_called()
+
+        await switch.async_turn_off()
+        mock_coordinator.client.set_dns_cache_enabled.assert_not_called()
+
+    def test_dns_cache_extra_attributes(self) -> None:
+        """Test DNS cache switch extra state attributes."""
+        from custom_components.adguard_home_extended.switch import AdGuardDnsCacheSwitch
+
+        mock_coordinator = MagicMock()
+        mock_coordinator.config_entry.entry_id = "test_entry"
+        mock_coordinator.device_info = {}
+        mock_coordinator.data = AdGuardHomeData()
+        mock_coordinator.data.dns_info = DnsInfo(
+            cache_enabled=True, cache_size=100000000
+        )
+        mock_coordinator.server_version.supports_cache_enabled = True
+
+        switch = AdGuardDnsCacheSwitch(mock_coordinator)
+        attrs = switch.extra_state_attributes
+
+        assert attrs["native_toggle_support"] is True
+        assert attrs["cache_size"] == 100000000
 
 
 class TestDnssecSwitch:

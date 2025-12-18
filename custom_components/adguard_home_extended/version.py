@@ -152,6 +152,11 @@ class AdGuardHomeVersion:
         """Check if DNS rewrite enabled field is available (v0.107.68+)."""
         return self >= (0, 107, 68)
 
+    @property
+    def supports_cache_enabled(self) -> bool:
+        """Check if DNS cache_enabled field is available (v0.107.65+)."""
+        return self >= (0, 107, 65)
+
     def get_feature_summary(self) -> dict[str, bool]:
         """Return a summary of all supported features."""
         return {
@@ -164,6 +169,7 @@ class AdGuardHomeVersion:
             "new_blocked_services": self.supports_new_blocked_services,
             "querylog_response_status": self.supports_querylog_response_status,
             "rewrite_enabled": self.supports_rewrite_enabled,
+            "cache_enabled": self.supports_cache_enabled,
         }
 
 
@@ -186,3 +192,4 @@ VERSION_CHECK_HOST_PARAMS = VersionTuple(0, 107, 58)
 VERSION_NEW_BLOCKED_SERVICES = VersionTuple(0, 107, 65)
 VERSION_QUERYLOG_RESPONSE_STATUS = VersionTuple(0, 107, 68)
 VERSION_REWRITE_ENABLED = VersionTuple(0, 107, 68)
+VERSION_CACHE_ENABLED = VersionTuple(0, 107, 65)

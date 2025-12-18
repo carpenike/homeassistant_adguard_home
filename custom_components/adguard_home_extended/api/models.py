@@ -168,7 +168,11 @@ class FilteringStatus:
 
 @dataclass
 class DnsInfo:
-    """AdGuard Home DNS configuration info."""
+    """AdGuard Home DNS configuration info.
+
+    Note: cache_enabled field is only available in AdGuard Home v0.107.65+.
+    For older versions, cache state is inferred from cache_size > 0.
+    """
 
     cache_enabled: bool = True
     cache_size: int = 4194304  # Default 4MB
@@ -183,10 +187,18 @@ class DnsInfo:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> DnsInfo:
-        """Create instance from API response dict."""
+        """Create instance from API response dict.
+
+        For AdGuard Home < v0.107.65, cache_enabled is not present in the API.
+        In that case, we infer cache status from cache_size > 0.
+        """
+        cache_size = data.get("cache_size", 4194304)
+        # If cache_enabled is present, use it; otherwise infer from cache_size
+        cache_enabled = data.get("cache_enabled", cache_size > 0)
+
         return cls(
-            cache_enabled=data.get("cache_enabled", True),
-            cache_size=data.get("cache_size", 4194304),
+            cache_enabled=cache_enabled,
+            cache_size=cache_size,
             cache_ttl_min=data.get("cache_ttl_min", 0),
             cache_ttl_max=data.get("cache_ttl_max", 0),
             upstream_dns=data.get("upstream_dns", []),
