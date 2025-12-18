@@ -192,9 +192,18 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
                         "parental_enabled": c.parental_enabled,
                         "safebrowsing_enabled": c.safebrowsing_enabled,
                         "safesearch_enabled": c.safesearch_enabled,
+                        "safe_search": (
+                            c.safe_search.to_dict() if c.safe_search else None
+                        ),
                         "use_global_blocked_services": c.use_global_blocked_services,
                         "blocked_services": c.blocked_services or [],
+                        "blocked_services_schedule": c.blocked_services_schedule,
+                        "upstreams": c.upstreams or [],
                         "tags": c.tags or [],
+                        "upstreams_cache_enabled": c.upstreams_cache_enabled,
+                        "upstreams_cache_size": c.upstreams_cache_size,
+                        "ignore_querylog": c.ignore_querylog,
+                        "ignore_statistics": c.ignore_statistics,
                     }
                     for c in clients
                 ]

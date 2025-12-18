@@ -203,7 +203,7 @@ class DnsInfo:
             cache_ttl_max=data.get("cache_ttl_max", 0),
             upstream_dns=data.get("upstream_dns", []),
             bootstrap_dns=data.get("bootstrap_dns", []),
-            rate_limit=data.get("rate_limit", 20),
+            rate_limit=data.get("ratelimit", 20),
             blocking_mode=data.get("blocking_mode", "default"),
             edns_cs_enabled=data.get("edns_cs_enabled", False),
             dnssec_enabled=data.get("dnssec_enabled", False),
@@ -214,26 +214,40 @@ class DnsInfo:
 class AdGuardHomeClient:
     """AdGuard Home client configuration.
 
-    Per OpenAPI spec, the Client schema includes:
-    - use_global_blocked_services: whether to use global blocked services
-    - blocked_services: list of service IDs to block (when not using global)
-    - blocked_services_schedule: schedule for when blocking is active (v0.107.37+)
-    - safe_search: SafeSearchConfig object (replaces deprecated safesearch_enabled)
-    - upstreams: list of custom DNS upstream servers for this client
+    Per OpenAPI spec (v0.107.69), the Client schema includes:
+    - name: Client name (required)
+    - ids: List of IP addresses, CIDRs, MACs, or ClientIDs (required)
+    - use_global_settings: Whether to use global filtering settings
+    - filtering_enabled: Whether DNS filtering is enabled for this client
+    - parental_enabled: Whether parental control is enabled
+    - safebrowsing_enabled: Whether safe browsing is enabled
+    - safesearch_enabled: (deprecated) Use safe_search instead
+    - safe_search: SafeSearchConfig object with per-engine settings
+    - use_global_blocked_services: Whether to use global blocked services
+    - blocked_services: List of service IDs to block (when not using global)
+    - blocked_services_schedule: Schedule for when blocking is active
+    - upstreams: List of custom DNS upstream servers for this client
+    - tags: List of tags for client categorization
+    - ignore_querylog: Exclude this client from query log
+    - ignore_statistics: Exclude this client from statistics
+    - upstreams_cache_enabled: Enable DNS cache for custom upstreams
+    - upstreams_cache_size: Size of the custom upstream cache
+
+    Note: The 'uid' field exists in the configuration file
+    (clients.persistent.*.uid) but is NOT returned by the HTTP API.
     """
 
     name: str
     ids: list[str] = field(default_factory=list)
-    uid: str = ""  # Unique identifier (v0.107.46+)
     use_global_settings: bool = True
     filtering_enabled: bool = True
     parental_enabled: bool = False
     safebrowsing_enabled: bool = False
     safesearch_enabled: bool = False  # Deprecated, use safe_search instead
-    safe_search: SafeSearchSettings | None = None  # Per-engine safe search (v0.107.52+)
+    safe_search: SafeSearchSettings | None = None  # Per-engine safe search
     use_global_blocked_services: bool = True
     blocked_services: list[str] = field(default_factory=list)
-    blocked_services_schedule: dict[str, Any] | None = None  # v0.107.37+
+    blocked_services_schedule: dict[str, Any] | None = None
     upstreams: list[str] = field(default_factory=list)  # Custom DNS upstreams
     tags: list[str] = field(default_factory=list)
     upstreams_cache_enabled: bool = False  # Default per OpenAPI spec
@@ -253,7 +267,6 @@ class AdGuardHomeClient:
         return cls(
             name=data.get("name", ""),
             ids=data.get("ids", []),
-            uid=data.get("uid", ""),
             use_global_settings=data.get("use_global_settings", True),
             filtering_enabled=data.get("filtering_enabled", True),
             parental_enabled=data.get("parental_enabled", False),
@@ -270,6 +283,44 @@ class AdGuardHomeClient:
             ignore_querylog=data.get("ignore_querylog", False),
             ignore_statistics=data.get("ignore_statistics", False),
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dict for API request.
+
+        Returns the client configuration in the format expected by
+        POST /control/clients/add and POST /control/clients/update endpoints.
+        """
+        data: dict[str, Any] = {
+            "name": self.name,
+            "ids": self.ids,
+            "use_global_settings": self.use_global_settings,
+            "filtering_enabled": self.filtering_enabled,
+            "parental_enabled": self.parental_enabled,
+            "safebrowsing_enabled": self.safebrowsing_enabled,
+            "use_global_blocked_services": self.use_global_blocked_services,
+            "blocked_services": self.blocked_services or [],
+            "upstreams": self.upstreams or [],
+            "tags": self.tags or [],
+            "ignore_querylog": self.ignore_querylog,
+            "ignore_statistics": self.ignore_statistics,
+            "upstreams_cache_enabled": self.upstreams_cache_enabled,
+            "upstreams_cache_size": self.upstreams_cache_size,
+        }
+
+        # Handle safe_search - prefer the new object over deprecated boolean
+        if self.safe_search is not None:
+            data["safe_search"] = self.safe_search.to_dict()
+        else:
+            data["safesearch_enabled"] = self.safesearch_enabled
+
+        # Include blocked_services_schedule if present
+        if self.blocked_services_schedule is not None:
+            data["blocked_services_schedule"] = self.blocked_services_schedule
+        elif not self.use_global_blocked_services:
+            # Provide default empty schedule when using per-client blocked services
+            data["blocked_services_schedule"] = {"time_zone": "Local"}
+
+        return data
 
 
 @dataclass

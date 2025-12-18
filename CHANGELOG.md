@@ -15,15 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Filter list names wiped when toggling** - The `set_filter_enabled` API call was missing the required `name` field per the `FilterSetUrlData` schema, causing filter names to be set to empty string when enabling/disabling filter lists
 - **Global blocked services schedule wiped on toggle** - When toggling individual blocked service switches, the `blocked_services_schedule` was not being passed to the API, potentially wiping time-based schedules
 - **`set_client_blocked_services` service wiped client settings** - The service handler was not preserving `safe_search`, `upstreams`, `blocked_services_schedule`, `upstreams_cache_enabled`, `upstreams_cache_size`, `ignore_querylog`, and `ignore_statistics` fields when updating a client's blocked services
+- **`DnsInfo.rate_limit` not populated from API** - Fixed key name mismatch: API returns `ratelimit` but code was looking for `rate_limit`
+- **Deprecated blocked services API endpoints** - Updated to use non-deprecated `/control/blocked_services/get` and `/control/blocked_services/update` endpoints instead of `/list` and `/set`
+- **Coordinator missing client fields** - Added missing `safe_search`, `blocked_services_schedule`, `upstreams`, `upstreams_cache_enabled`, `upstreams_cache_size`, `ignore_querylog`, and `ignore_statistics` fields to coordinator client data
+
+### Changed
+
+- **Removed `uid` field from `AdGuardHomeClient` model** - The `uid` field exists only in AdGuard Home's config file but is NOT returned by the HTTP API, causing unnecessary empty values
+- **Refactored `add_client`/`update_client` to use `to_dict()`** - Cleaner code using the model's serialization method instead of manual dict construction
 
 ### Added
 
+- `to_dict()` method to `AdGuardHomeClient` model - Proper serialization for API requests with correct field handling
 - `blocked_services_schedule` field to `AdGuardHomeClient` model - Preserves per-client blocked services schedules (required since AdGuard Home v0.107.37)
 - `safe_search` field to `AdGuardHomeClient` model - Supports the new safe search settings object (v0.107.52+) with per-engine toggles
 - `upstreams` field to `AdGuardHomeClient` model - Preserves per-client custom DNS upstream servers
 - `ignore_querylog` and `ignore_statistics` fields to `AdGuardHomeClient` model - Preserves privacy settings for individual clients
 - `upstreams_cache_enabled` and `upstreams_cache_size` fields to client API methods - Preserves per-client upstream cache settings
 - Optional `name` parameter to `set_filter_enabled()` API method - Allows preserving filter names when toggling
+- Tests for `AdGuardHomeClient.to_dict()` method (8 new tests)
+- Tests for coordinator client data transformation (2 new tests)
 - Tests for new client fields including schedule preservation, safe_search object, and upstreams
 - Tests for filter name preservation on toggle
 - Tests for blocked services schedule preservation on toggle
@@ -165,7 +176,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Diagnostics support with sensitive data redaction
   - Full test coverage (114 tests)
 
-[Unreleased]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.7...HEAD
+[0.2.7]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.6...v0.2.7
+[0.2.6]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.5...v0.2.6
+[0.2.5]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.4...v0.2.5
+[0.2.4]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.0...v0.2.1

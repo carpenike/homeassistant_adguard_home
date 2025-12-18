@@ -16,8 +16,10 @@ from custom_components.adguard_home_extended.api.client import (
     AdGuardHomeConnectionError,
 )
 from custom_components.adguard_home_extended.api.models import (
+    AdGuardHomeClient,
     AdGuardHomeStats,
     AdGuardHomeStatus,
+    SafeSearchSettings,
 )
 from custom_components.adguard_home_extended.const import (
     CONF_QUERY_LOG_LIMIT,
@@ -637,3 +639,120 @@ class TestAdGuardHomeDataUpdateCoordinator:
 
         assert data is not None
         assert data.querylog_config is None  # Failed to fetch
+
+    @pytest.mark.asyncio
+    async def test_clients_data_transformation(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that client data is correctly transformed with all fields."""
+        # Create a client with all fields populated (matching actual API response)
+        safe_search = SafeSearchSettings(
+            enabled=True,
+            bing=True,
+            duckduckgo=True,
+            ecosia=False,
+            google=True,
+            pixabay=True,
+            yandex=False,
+            youtube=True,
+        )
+        test_client = AdGuardHomeClient(
+            name="Test Client",
+            ids=["10.0.0.1", "aa:bb:cc:dd:ee:ff"],
+            use_global_settings=False,
+            filtering_enabled=True,
+            parental_enabled=True,
+            safebrowsing_enabled=True,
+            safesearch_enabled=True,
+            safe_search=safe_search,
+            use_global_blocked_services=False,
+            blocked_services=["facebook", "instagram"],
+            blocked_services_schedule={
+                "time_zone": "UTC",
+                "mon": {"start": 0, "end": 86400},
+            },
+            upstreams=["8.8.8.8", "1.1.1.1"],
+            tags=["device_laptop", "user_admin"],
+            upstreams_cache_enabled=True,
+            upstreams_cache_size=8192,
+            ignore_querylog=True,
+            ignore_statistics=True,
+        )
+
+        mock_client.get_clients = AsyncMock(return_value=[test_client])
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        data = await coordinator._async_update_data()
+
+        # Verify clients list has one entry
+        assert len(data.clients) == 1
+        client_data = data.clients[0]
+
+        # Verify all basic fields
+        assert client_data["name"] == "Test Client"
+        assert client_data["ids"] == ["10.0.0.1", "aa:bb:cc:dd:ee:ff"]
+        assert client_data["use_global_settings"] is False
+        assert client_data["filtering_enabled"] is True
+        assert client_data["parental_enabled"] is True
+        assert client_data["safebrowsing_enabled"] is True
+        assert client_data["safesearch_enabled"] is True
+
+        # Verify safe_search object is converted to dict
+        assert client_data["safe_search"] is not None
+        assert client_data["safe_search"]["enabled"] is True
+        assert client_data["safe_search"]["google"] is True
+        assert client_data["safe_search"]["ecosia"] is False
+        assert client_data["safe_search"]["yandex"] is False
+
+        # Verify blocked services fields
+        assert client_data["use_global_blocked_services"] is False
+        assert client_data["blocked_services"] == ["facebook", "instagram"]
+        assert client_data["blocked_services_schedule"] == {
+            "time_zone": "UTC",
+            "mon": {"start": 0, "end": 86400},
+        }
+
+        # Verify custom upstream fields
+        assert client_data["upstreams"] == ["8.8.8.8", "1.1.1.1"]
+        assert client_data["upstreams_cache_enabled"] is True
+        assert client_data["upstreams_cache_size"] == 8192
+
+        # Verify other fields
+        assert client_data["tags"] == ["device_laptop", "user_admin"]
+        assert client_data["ignore_querylog"] is True
+        assert client_data["ignore_statistics"] is True
+
+    @pytest.mark.asyncio
+    async def test_clients_data_transformation_minimal(
+        self, hass: HomeAssistant, mock_client: AsyncMock, mock_entry: MagicMock
+    ) -> None:
+        """Test client data transformation with minimal fields (defaults)."""
+        # Client with minimal data - safe_search is None
+        test_client = AdGuardHomeClient(
+            name="Minimal Client",
+            ids=["10.0.0.2"],
+        )
+
+        mock_client.get_clients = AsyncMock(return_value=[test_client])
+
+        coordinator = AdGuardHomeDataUpdateCoordinator(hass, mock_client, mock_entry)
+        data = await coordinator._async_update_data()
+
+        assert len(data.clients) == 1
+        client_data = data.clients[0]
+
+        # Verify defaults
+        assert client_data["name"] == "Minimal Client"
+        assert client_data["ids"] == ["10.0.0.2"]
+        assert client_data["use_global_settings"] is True
+        assert client_data["filtering_enabled"] is True
+        assert client_data["safe_search"] is None  # No safe_search object
+        assert client_data["use_global_blocked_services"] is True
+        assert client_data["blocked_services"] == []
+        assert client_data["blocked_services_schedule"] is None
+        assert client_data["upstreams"] == []
+        assert client_data["tags"] == []
+        assert client_data["upstreams_cache_enabled"] is False
+        assert client_data["upstreams_cache_size"] == 0
+        assert client_data["ignore_querylog"] is False
+        assert client_data["ignore_statistics"] is False

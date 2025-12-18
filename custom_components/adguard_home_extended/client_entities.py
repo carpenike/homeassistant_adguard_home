@@ -170,7 +170,6 @@ class AdGuardClientBaseSwitch(
         updated_client = ClientConfig(
             name=client_data.get("name", ""),
             ids=client_data.get("ids", []),
-            uid=client_data.get("uid", ""),
             use_global_settings=kwargs.get(
                 "use_global_settings", client_data.get("use_global_settings", True)
             ),

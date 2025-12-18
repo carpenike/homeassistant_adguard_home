@@ -12,8 +12,6 @@ from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeo
 from ..const import (
     API_BLOCKED_SERVICES_ALL,
     API_BLOCKED_SERVICES_GET,
-    API_BLOCKED_SERVICES_LIST,
-    API_BLOCKED_SERVICES_SET,
     API_BLOCKED_SERVICES_UPDATE,
     API_CHECK_HOST,
     API_CLIENTS,
@@ -441,46 +439,20 @@ class AdGuardHomeClient:
     ) -> None:
         """Add a client.
 
+        Uses POST /control/clients/add endpoint per OpenAPI spec.
+
         Args:
             client: The ClientConfig with client settings.
-            blocked_services_schedule: Optional schedule for blocked services.
-                If not provided, uses client.blocked_services_schedule.
+            blocked_services_schedule: Optional override for blocked services schedule.
+                If provided, overrides client.blocked_services_schedule.
                 Format: {"time_zone": "Local", "mon": {"start": 0, "end": 86400000}, ...}
         """
-        data: dict[str, Any] = {
-            "name": client.name,
-            "ids": client.ids,
-            "use_global_settings": client.use_global_settings,
-            "filtering_enabled": client.filtering_enabled,
-            "parental_enabled": client.parental_enabled,
-            "safebrowsing_enabled": client.safebrowsing_enabled,
-            "use_global_blocked_services": client.use_global_blocked_services,
-            "blocked_services": client.blocked_services or [],
-            "upstreams": client.upstreams or [],
-            "tags": client.tags or [],
-            "ignore_querylog": client.ignore_querylog,
-            "ignore_statistics": client.ignore_statistics,
-            "upstreams_cache_enabled": client.upstreams_cache_enabled,
-            "upstreams_cache_size": client.upstreams_cache_size,
-        }
+        # Use the ClientConfig's to_dict() method which handles all fields correctly
+        data = client.to_dict()
 
-        # Handle safe_search (v0.107.52+) - prefer safe_search over deprecated safesearch_enabled
-        if client.safe_search is not None:
-            data["safe_search"] = client.safe_search.to_dict()
-        else:
-            # Fallback to deprecated field
-            data["safesearch_enabled"] = client.safesearch_enabled
-
-        # Determine blocked_services_schedule:
-        # 1. Use explicit parameter if provided
-        # 2. Otherwise use schedule from ClientConfig if present
-        # 3. Fall back to default empty schedule when using per-client blocked services
-        schedule = blocked_services_schedule or client.blocked_services_schedule
-        if schedule is not None:
-            data["blocked_services_schedule"] = schedule
-        elif not client.use_global_blocked_services:
-            # Provide a default empty schedule when using per-client blocked services
-            data["blocked_services_schedule"] = {"time_zone": "Local"}
+        # Override blocked_services_schedule if explicitly provided
+        if blocked_services_schedule is not None:
+            data["blocked_services_schedule"] = blocked_services_schedule
 
         await self._post(API_CLIENTS_ADD, data)
 
@@ -492,48 +464,22 @@ class AdGuardHomeClient:
     ) -> None:
         """Update a client.
 
+        Uses POST /control/clients/update endpoint per OpenAPI spec.
+        The request format is {"name": "current_name", "data": {...client fields...}}.
+
         Args:
-            name: The current name of the client to update.
+            name: The current name of the client to update (used as identifier).
             client: The ClientConfig with updated values.
-            blocked_services_schedule: Optional schedule for blocked services.
-                If not provided, uses client.blocked_services_schedule.
+            blocked_services_schedule: Optional override for blocked services schedule.
+                If provided, overrides client.blocked_services_schedule.
                 Format: {"time_zone": "Local", "mon": {"start": 0, "end": 86400000}, ...}
         """
-        # Build the data dict with all required Client schema fields
-        data: dict[str, Any] = {
-            "name": client.name,
-            "ids": client.ids,
-            "use_global_settings": client.use_global_settings,
-            "filtering_enabled": client.filtering_enabled,
-            "parental_enabled": client.parental_enabled,
-            "safebrowsing_enabled": client.safebrowsing_enabled,
-            "use_global_blocked_services": client.use_global_blocked_services,
-            "blocked_services": client.blocked_services or [],
-            "upstreams": client.upstreams or [],
-            "tags": client.tags or [],
-            "ignore_querylog": client.ignore_querylog,
-            "ignore_statistics": client.ignore_statistics,
-            "upstreams_cache_enabled": client.upstreams_cache_enabled,
-            "upstreams_cache_size": client.upstreams_cache_size,
-        }
+        # Use the ClientConfig's to_dict() method which handles all fields correctly
+        data = client.to_dict()
 
-        # Handle safe_search (v0.107.52+) - prefer safe_search over deprecated safesearch_enabled
-        if client.safe_search is not None:
-            data["safe_search"] = client.safe_search.to_dict()
-        else:
-            # Fallback to deprecated field
-            data["safesearch_enabled"] = client.safesearch_enabled
-
-        # Determine blocked_services_schedule:
-        # 1. Use explicit parameter if provided (highest priority)
-        # 2. Otherwise use schedule from ClientConfig if present (preserves existing)
-        # 3. Fall back to default empty schedule when using per-client blocked services
-        schedule = blocked_services_schedule or client.blocked_services_schedule
-        if schedule is not None:
-            data["blocked_services_schedule"] = schedule
-        elif not client.use_global_blocked_services:
-            # Provide a default empty schedule when using per-client blocked services
-            data["blocked_services_schedule"] = {"time_zone": "Local"}
+        # Override blocked_services_schedule if explicitly provided
+        if blocked_services_schedule is not None:
+            data["blocked_services_schedule"] = blocked_services_schedule
 
         await self._post(
             API_CLIENTS_UPDATE,
@@ -549,33 +495,46 @@ class AdGuardHomeClient:
 
     # Blocked services
     async def get_all_blocked_services(self) -> list[BlockedService]:
-        """Get all available blocked services."""
+        """Get all available blocked services.
+
+        Returns a list of all services that can be blocked, with their
+        ID, name, icon, and filtering rules.
+
+        Uses GET /control/blocked_services/all endpoint.
+        """
         data = await self._get(API_BLOCKED_SERVICES_ALL)
         services = data.get("blocked_services", [])
         return [BlockedService.from_dict(svc) for svc in services]
 
     async def get_blocked_services(self) -> list[str]:
-        """Get currently blocked services.
+        """Get currently blocked service IDs.
 
-        Handles both old (list) and new (object with ids) API formats.
+        Returns:
+            List of blocked service IDs.
+
+        Uses the non-deprecated GET /control/blocked_services/get endpoint
+        which returns {"ids": [...], "schedule": {...}}.
         """
-        data = await self._get(API_BLOCKED_SERVICES_LIST)
-        # New format returns {"ids": [...], "schedule": {...}}
+        data = await self._get(API_BLOCKED_SERVICES_GET)
         if isinstance(data, dict):
             ids = data.get("ids", [])
             return list(ids) if ids else []
-        # Old format returns just a list
+        # Fallback for unexpected response format
         return list(data) if isinstance(data, list) else []
 
     async def get_blocked_services_with_schedule(self) -> dict[str, Any]:
         """Get blocked services with schedule info.
 
-        Returns the full response including schedule (v0.107.37+).
+        Returns the full response including schedule.
+        Uses GET /control/blocked_services/get endpoint.
+
+        Returns:
+            Dict with "ids" (list of service IDs) and "schedule" (Schedule object).
         """
-        data = await self._get(API_BLOCKED_SERVICES_LIST)
+        data = await self._get(API_BLOCKED_SERVICES_GET)
         if isinstance(data, dict):
             return data
-        # Old format - wrap in new format structure
+        # Fallback - wrap in expected structure
         return {"ids": data if isinstance(data, list) else [], "schedule": {}}
 
     async def set_blocked_services(
@@ -585,15 +544,21 @@ class AdGuardHomeClient:
     ) -> None:
         """Set blocked services with optional schedule.
 
+        Uses PUT /control/blocked_services/update endpoint (non-deprecated).
+
         Args:
             services: List of service IDs to block.
             schedule: Optional schedule dict with time_zone and day configs.
-                     Example: {"time_zone": "America/New_York", "mon": {"start": 0, "end": 86399999}}
+                Format: {"time_zone": "America/New_York", "mon": {"start": 0, "end": 86400000}, ...}
+                Each day can have start/end in milliseconds from midnight.
         """
         data: dict[str, Any] = {"ids": services}
         if schedule is not None:
             data["schedule"] = schedule
-        await self._post(API_BLOCKED_SERVICES_SET, data)
+        else:
+            # Always include a default schedule per OpenAPI spec
+            data["schedule"] = {"time_zone": "Local"}
+        await self._put(API_BLOCKED_SERVICES_UPDATE, data)
 
     # DNS rewrites
     async def get_rewrites(self) -> list[DnsRewrite]:

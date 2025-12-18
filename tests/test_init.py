@@ -887,7 +887,6 @@ class TestServiceHandlers:
             {
                 "name": "laptop",
                 "ids": ["192.168.1.100"],
-                "uid": "abc123",
                 "use_global_settings": False,
                 "filtering_enabled": True,
                 "parental_enabled": True,
@@ -942,7 +941,6 @@ class TestServiceHandlers:
         # Verify all other fields were preserved
         assert client_arg.name == "laptop"
         assert client_arg.ids == ["192.168.1.100"]
-        assert client_arg.uid == "abc123"
         assert client_arg.use_global_settings is False
         assert client_arg.filtering_enabled is True
         assert client_arg.parental_enabled is True

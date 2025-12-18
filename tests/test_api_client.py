@@ -473,7 +473,7 @@ class TestAdGuardHomeClient:
     async def test_set_blocked_services(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test setting blocked services uses new API format."""
+        """Test setting blocked services uses new API format with schedule."""
         mock_response = create_mock_response(status=200, json_data=None)
         mock_session.request.return_value = MockContextManager(mock_response)
 
@@ -481,8 +481,10 @@ class TestAdGuardHomeClient:
 
         mock_session.request.assert_called_once()
         call_args = mock_session.request.call_args
-        # Verify it sends the new format {"ids": [...]}
-        assert call_args[1]["json"] == {"ids": ["facebook", "youtube"]}
+        # Verify it sends the new format {"ids": [...], "schedule": {...}}
+        assert call_args[1]["json"]["ids"] == ["facebook", "youtube"]
+        # Schedule is included with default time_zone
+        assert "schedule" in call_args[1]["json"]
 
     @pytest.mark.asyncio
     async def test_set_blocked_services_with_schedule(
@@ -2057,7 +2059,7 @@ class TestApiClientAdditionalMethods:
     async def test_set_blocked_services(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
-        """Test setting blocked services."""
+        """Test setting blocked services uses the update endpoint."""
         mock_response = create_mock_response(status=200, json_data=None)
         mock_session.request.return_value = MockContextManager(mock_response)
 
@@ -2065,7 +2067,8 @@ class TestApiClientAdditionalMethods:
 
         mock_session.request.assert_called_once()
         call_args = mock_session.request.call_args
-        assert "/control/blocked_services/set" in call_args[0][1]
+        # Uses the /update endpoint (non-deprecated)
+        assert "/control/blocked_services/update" in call_args[0][1]
 
     @pytest.mark.asyncio
     async def test_update_client_with_schedule(

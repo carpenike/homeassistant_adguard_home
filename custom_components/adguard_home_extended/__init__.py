@@ -230,7 +230,6 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
                 updated_client = ClientConfig(
                     name=client_data.get("name", ""),
                     ids=client_data.get("ids", []),
-                    uid=client_data.get("uid", ""),
                     use_global_settings=client_data.get("use_global_settings", True),
                     filtering_enabled=client_data.get("filtering_enabled", True),
                     parental_enabled=client_data.get("parental_enabled", False),

@@ -84,7 +84,7 @@ class TestDnsInfo:
             "cache_ttl_max": 3600,
             "upstream_dns": ["https://dns.cloudflare.com/dns-query"],
             "bootstrap_dns": ["1.1.1.1"],
-            "rate_limit": 50,
+            "ratelimit": 50,  # API uses "ratelimit" not "rate_limit"
             "blocking_mode": "nxdomain",
             "edns_cs_enabled": True,
             "dnssec_enabled": True,
@@ -305,7 +305,6 @@ class TestClientConfig:
         data = {
             "name": "Kids Tablet",
             "ids": ["192.168.1.100", "AA:BB:CC:DD:EE:FF"],
-            "uid": "client-abc123",
             "use_global_settings": False,
             "filtering_enabled": True,
             "parental_enabled": True,
@@ -335,7 +334,6 @@ class TestClientConfig:
 
         assert client.name == "Kids Tablet"
         assert len(client.ids) == 2
-        assert client.uid == "client-abc123"
         assert client.use_global_settings is False
         assert client.filtering_enabled is True
         assert client.parental_enabled is True
@@ -364,7 +362,6 @@ class TestClientConfig:
 
         assert client.name == "Test"
         assert client.ids == []
-        assert client.uid == ""
         assert client.use_global_settings is True
         assert client.filtering_enabled is True
         assert client.parental_enabled is False
@@ -377,6 +374,190 @@ class TestClientConfig:
         assert client.upstreams_cache_size == 0
         assert client.ignore_querylog is False
         assert client.ignore_statistics is False
+
+    def test_to_dict_with_safe_search(self) -> None:
+        """Test converting client config to dict with safe_search object."""
+        safe_search = SafeSearchSettings(
+            enabled=True,
+            bing=True,
+            duckduckgo=True,
+            ecosia=True,
+            google=True,
+            pixabay=True,
+            yandex=True,
+            youtube=False,
+        )
+        client = ClientConfig(
+            name="Kids Tablet",
+            ids=["192.168.1.100"],
+            use_global_settings=False,
+            filtering_enabled=True,
+            parental_enabled=True,
+            safebrowsing_enabled=True,
+            safe_search=safe_search,
+            use_global_blocked_services=False,
+            blocked_services=["tiktok", "youtube"],
+            blocked_services_schedule={"time_zone": "America/New_York"},
+            upstreams=["https://family.cloudflare-dns.com/dns-query"],
+            tags=["device:tablet"],
+            ignore_querylog=True,
+            ignore_statistics=True,
+            upstreams_cache_enabled=True,
+            upstreams_cache_size=8192,
+        )
+
+        result = client.to_dict()
+
+        assert result["name"] == "Kids Tablet"
+        assert result["ids"] == ["192.168.1.100"]
+        assert result["use_global_settings"] is False
+        assert result["filtering_enabled"] is True
+        assert result["parental_enabled"] is True
+        assert result["safebrowsing_enabled"] is True
+        assert result["use_global_blocked_services"] is False
+        assert result["blocked_services"] == ["tiktok", "youtube"]
+        assert result["blocked_services_schedule"] == {"time_zone": "America/New_York"}
+        assert result["upstreams"] == ["https://family.cloudflare-dns.com/dns-query"]
+        assert result["tags"] == ["device:tablet"]
+        assert result["ignore_querylog"] is True
+        assert result["ignore_statistics"] is True
+        assert result["upstreams_cache_enabled"] is True
+        assert result["upstreams_cache_size"] == 8192
+        # safe_search object should be serialized, not safesearch_enabled
+        assert "safe_search" in result
+        assert result["safe_search"]["enabled"] is True
+        assert result["safe_search"]["youtube"] is False
+        assert "safesearch_enabled" not in result
+
+    def test_to_dict_without_safe_search(self) -> None:
+        """Test converting client config to dict without safe_search (uses deprecated field)."""
+        client = ClientConfig(
+            name="Basic Client",
+            ids=["192.168.1.50"],
+            safesearch_enabled=True,
+            safe_search=None,
+        )
+
+        result = client.to_dict()
+
+        # Without safe_search object, should include safesearch_enabled
+        assert "safesearch_enabled" in result
+        assert result["safesearch_enabled"] is True
+        assert "safe_search" not in result
+
+    def test_to_dict_auto_schedule_for_per_client_blocked_services(self) -> None:
+        """Test that to_dict adds default schedule when using per-client blocked services."""
+        client = ClientConfig(
+            name="No Schedule Client",
+            ids=["192.168.1.60"],
+            use_global_blocked_services=False,
+            blocked_services=["facebook"],
+            blocked_services_schedule=None,  # No schedule provided
+        )
+
+        result = client.to_dict()
+
+        # Should auto-add default schedule with time_zone
+        assert result["use_global_blocked_services"] is False
+        assert result["blocked_services"] == ["facebook"]
+        assert result["blocked_services_schedule"] == {"time_zone": "Local"}
+
+    def test_to_dict_no_schedule_with_global_blocked_services(self) -> None:
+        """Test that to_dict doesn't add schedule when using global blocked services."""
+        client = ClientConfig(
+            name="Global Services Client",
+            ids=["192.168.1.70"],
+            use_global_blocked_services=True,
+            blocked_services_schedule=None,
+        )
+
+        result = client.to_dict()
+
+        # Should NOT include blocked_services_schedule when using global
+        assert result["use_global_blocked_services"] is True
+        assert "blocked_services_schedule" not in result
+
+    def test_to_dict_defaults(self) -> None:
+        """Test converting client config with defaults to dict."""
+        client = ClientConfig(name="Default Client", ids=["192.168.1.80"])
+
+        result = client.to_dict()
+
+        assert result["name"] == "Default Client"
+        assert result["ids"] == ["192.168.1.80"]
+        assert result["use_global_settings"] is True
+        assert result["filtering_enabled"] is True
+        assert result["parental_enabled"] is False
+        assert result["safebrowsing_enabled"] is False
+        assert result["use_global_blocked_services"] is True
+        assert result["blocked_services"] == []
+        assert result["upstreams"] == []
+        assert result["tags"] == []
+        assert result["ignore_querylog"] is False
+        assert result["ignore_statistics"] is False
+        assert result["upstreams_cache_enabled"] is False
+        assert result["upstreams_cache_size"] == 0
+
+    def test_to_dict_roundtrip(self) -> None:
+        """Test that from_dict -> to_dict produces consistent results."""
+        original_data = {
+            "name": "Roundtrip Test",
+            "ids": ["192.168.1.90", "AA:BB:CC:DD:EE:FF"],
+            "use_global_settings": False,
+            "filtering_enabled": True,
+            "parental_enabled": True,
+            "safebrowsing_enabled": True,
+            "safe_search": {
+                "enabled": True,
+                "bing": True,
+                "duckduckgo": True,
+                "ecosia": True,
+                "google": True,
+                "pixabay": True,
+                "yandex": True,
+                "youtube": False,
+            },
+            "use_global_blocked_services": False,
+            "blocked_services": ["tiktok", "youtube"],
+            "blocked_services_schedule": {"time_zone": "UTC"},
+            "upstreams": ["https://dns.example.com/dns-query"],
+            "tags": ["test"],
+            "upstreams_cache_enabled": True,
+            "upstreams_cache_size": 4096,
+            "ignore_querylog": True,
+            "ignore_statistics": True,
+        }
+
+        client = ClientConfig.from_dict(original_data)
+        result = client.to_dict()
+
+        # All key fields should match
+        assert result["name"] == original_data["name"]
+        assert result["ids"] == original_data["ids"]
+        assert result["use_global_settings"] == original_data["use_global_settings"]
+        assert result["filtering_enabled"] == original_data["filtering_enabled"]
+        assert result["parental_enabled"] == original_data["parental_enabled"]
+        assert result["safebrowsing_enabled"] == original_data["safebrowsing_enabled"]
+        assert (
+            result["use_global_blocked_services"]
+            == original_data["use_global_blocked_services"]
+        )
+        assert result["blocked_services"] == original_data["blocked_services"]
+        assert (
+            result["blocked_services_schedule"]
+            == original_data["blocked_services_schedule"]
+        )
+        assert result["upstreams"] == original_data["upstreams"]
+        assert result["tags"] == original_data["tags"]
+        assert (
+            result["upstreams_cache_enabled"]
+            == original_data["upstreams_cache_enabled"]
+        )
+        assert result["upstreams_cache_size"] == original_data["upstreams_cache_size"]
+        assert result["ignore_querylog"] == original_data["ignore_querylog"]
+        assert result["ignore_statistics"] == original_data["ignore_statistics"]
+        # safe_search should be serialized
+        assert result["safe_search"] == original_data["safe_search"]
 
 
 class TestBlockedService:
