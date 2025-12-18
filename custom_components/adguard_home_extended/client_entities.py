@@ -7,11 +7,13 @@ from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .api.models import AdGuardHomeClient as ClientConfig
+from .blocked_services import SERVICE_CATEGORIES
 from .const import DOMAIN
 from .coordinator import AdGuardHomeDataUpdateCoordinator
 
@@ -56,6 +58,19 @@ async def create_client_entities(
             entities.append(
                 AdGuardClientUseGlobalBlockedServicesSwitch(coordinator, client.name)
             )
+
+            # Per-client blocked service switches (one for each available service)
+            # These allow granular control over which services are blocked per client
+            if coordinator.data.available_services:
+                for service in coordinator.data.available_services:
+                    entities.append(
+                        AdGuardClientBlockedServiceSwitch(
+                            coordinator=coordinator,
+                            client_name=client.name,
+                            service_id=service["id"],
+                            service_name=service["name"],
+                        )
+                    )
 
     return entities
 
@@ -368,3 +383,131 @@ class AdGuardClientUseGlobalBlockedServicesSwitch(AdGuardClientBaseSwitch):
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable global blocked services for this client."""
         await self._async_update_client(use_global_blocked_services=False)
+
+
+class AdGuardClientBlockedServiceSwitch(AdGuardClientBaseSwitch):
+    """Switch to toggle blocking of a specific service for a specific client.
+
+    This switch allows granular per-client control over which services are blocked.
+    When 'use_global_blocked_services' is enabled for the client, this switch will
+    show as unavailable since the client follows global settings.
+
+    When turned on, this switch adds the service to the client's blocked_services list.
+    When turned off, it removes the service from the list.
+    """
+
+    def __init__(
+        self,
+        coordinator: AdGuardHomeDataUpdateCoordinator,
+        client_name: str,
+        service_id: str,
+        service_name: str,
+    ) -> None:
+        """Initialize the per-client blocked service switch."""
+        super().__init__(
+            coordinator,
+            client_name,
+            f"block_{service_id}",
+            self._get_service_icon(service_id),
+        )
+        self._service_id = service_id
+        self._service_name = service_name
+        self._attr_entity_category = EntityCategory.CONFIG
+
+    @staticmethod
+    def _get_service_icon(service_id: str) -> str:
+        """Get the icon for a service based on its category."""
+        for category_data in SERVICE_CATEGORIES.values():
+            if service_id in category_data["services"]:
+                icon = category_data["icon"]
+                return str(icon)
+        return "mdi:block-helper"
+
+    @property
+    def name(self) -> str:
+        """Return the name of the switch."""
+        return f"Block {self._service_name}"
+
+    @property
+    def available(self) -> bool:
+        """Return if entity is available.
+
+        The switch is unavailable when:
+        - Coordinator has no data
+        - Client doesn't exist
+        - Client is using global blocked services (this switch doesn't apply)
+        """
+        if not self.coordinator.last_update_success:
+            return False
+
+        client_data = self._get_client_data()
+        if client_data is None:
+            return False
+
+        # Unavailable when using global blocked services since per-client settings don't apply
+        return not client_data.get("use_global_blocked_services", True)
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return true if the service is blocked for this client."""
+        client_data = self._get_client_data()
+        if client_data is None:
+            return None
+
+        blocked_services = client_data.get("blocked_services", [])
+        return self._service_id in blocked_services
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return extra state attributes."""
+        client_data = self._get_client_data()
+        base_attrs = super().extra_state_attributes
+
+        # Find category for this service
+        category = None
+        for cat_data in SERVICE_CATEGORIES.values():
+            if self._service_id in cat_data["services"]:
+                category = cat_data["name"]
+                break
+
+        return {
+            **base_attrs,
+            "service_id": self._service_id,
+            "service_name": self._service_name,
+            "category": category,
+            "uses_global_blocked_services": (
+                client_data.get("use_global_blocked_services", True)
+                if client_data
+                else None
+            ),
+        }
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        """Block this service for this client."""
+        client_data = self._get_client_data()
+        if client_data is None:
+            return
+
+        # Get current blocked services and add this one
+        current_blocked = set(client_data.get("blocked_services", []))
+        current_blocked.add(self._service_id)
+
+        await self._async_update_client(
+            blocked_services=list(current_blocked),
+            use_global_blocked_services=False,  # Ensure we're using per-client settings
+        )
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        """Unblock this service for this client."""
+        client_data = self._get_client_data()
+        if client_data is None:
+            return
+
+        # Get current blocked services and remove this one
+        current_blocked = set(client_data.get("blocked_services", []))
+        current_blocked.discard(self._service_id)
+
+        await self._async_update_client(
+            blocked_services=list(current_blocked),
+            use_global_blocked_services=False,  # Ensure we're using per-client settings
+        )

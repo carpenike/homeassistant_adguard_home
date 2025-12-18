@@ -151,6 +151,9 @@
       },
       "blocked_service": {
         "name": "Block {service_name}"
+      },
+      "client_blocked_service": {
+        "name": "Block {service_name}"
       }
     },
     "binary_sensor": {

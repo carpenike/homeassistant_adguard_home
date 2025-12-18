@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from custom_components.adguard_home_extended.client_entities import (
+    AdGuardClientBlockedServiceSwitch,
     AdGuardClientFilteringSwitch,
     AdGuardClientParentalSwitch,
     AdGuardClientUseGlobalSettingsSwitch,
@@ -51,6 +52,39 @@ class TestCreateClientEntities:
                 "tags": [],
             },
         ]
+        # Add available services for per-client blocked service switches
+        coordinator.data.available_services = [
+            {"id": "youtube", "name": "YouTube"},
+            {"id": "tiktok", "name": "TikTok"},
+            {"id": "facebook", "name": "Facebook"},
+        ]
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        return coordinator
+
+    @pytest.fixture
+    def mock_coordinator_no_services(self) -> MagicMock:
+        """Return a mock coordinator with client data but no available services."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Kids Tablet",
+                "ids": ["192.168.1.100"],
+                "use_global_settings": False,
+                "filtering_enabled": True,
+                "parental_enabled": True,
+                "safebrowsing_enabled": True,
+                "safesearch_enabled": True,
+                "use_global_blocked_services": False,
+                "blocked_services": ["tiktok"],
+                "tags": [],
+            },
+        ]
+        coordinator.data.available_services = []
         coordinator.client = AsyncMock()
         coordinator.client.update_client = AsyncMock()
         coordinator.async_request_refresh = AsyncMock()
@@ -66,8 +100,23 @@ class TestCreateClientEntities:
 
         entities = await create_client_entities(hass, entry, mock_coordinator)
 
-        # 2 clients × 6 switches per client = 12 entities
-        assert len(entities) == 12
+        # 2 clients × (6 base switches + 3 blocked service switches) = 18 entities
+        assert len(entities) == 18
+
+    @pytest.mark.asyncio
+    async def test_create_entities_no_available_services(
+        self, mock_coordinator_no_services: MagicMock
+    ) -> None:
+        """Test creating entities when no available services exist."""
+        hass = MagicMock()
+        entry = MagicMock()
+
+        entities = await create_client_entities(
+            hass, entry, mock_coordinator_no_services
+        )
+
+        # 1 client × 6 base switches = 6 entities (no blocked service switches)
+        assert len(entities) == 6
 
     @pytest.mark.asyncio
     async def test_create_entities_no_clients(self) -> None:
@@ -945,3 +994,282 @@ class TestClientEntityManager:
 
         unsubscribe_mock.assert_called_once()
         assert manager._unsubscribe is None
+
+
+class TestClientBlockedServiceSwitch:
+    """Tests for AdGuardClientBlockedServiceSwitch."""
+
+    @pytest.fixture
+    def mock_coordinator(self) -> MagicMock:
+        """Return a mock coordinator with client using per-client blocked services."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Kids Tablet",
+                "ids": ["192.168.1.100"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": False,
+                "use_global_blocked_services": False,
+                "blocked_services": ["youtube", "tiktok"],
+                "tags": ["device:tablet"],
+            },
+        ]
+        coordinator.data.available_services = [
+            {"id": "youtube", "name": "YouTube"},
+            {"id": "tiktok", "name": "TikTok"},
+            {"id": "facebook", "name": "Facebook"},
+        ]
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        coordinator.last_update_success = True
+        return coordinator
+
+    @pytest.fixture
+    def mock_coordinator_global_services(self) -> MagicMock:
+        """Return a mock coordinator with client using global blocked services."""
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Office PC",
+                "ids": ["192.168.1.101"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        coordinator.data.available_services = [
+            {"id": "youtube", "name": "YouTube"},
+        ]
+        coordinator.client = AsyncMock()
+        coordinator.client.update_client = AsyncMock()
+        coordinator.async_request_refresh = AsyncMock()
+        coordinator.last_update_success = True
+        return coordinator
+
+    def test_switch_name(self, mock_coordinator: MagicMock) -> None:
+        """Test switch name includes service name."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        assert switch.name == "Block YouTube"
+
+    def test_unique_id(self, mock_coordinator: MagicMock) -> None:
+        """Test unique ID includes client and service."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        assert "Kids Tablet" in switch.unique_id
+        assert "block_youtube" in switch.unique_id
+
+    def test_is_on_when_service_blocked(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on returns True when service is in blocked list."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        assert switch.is_on is True
+
+    def test_is_on_when_service_not_blocked(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on returns False when service is not in blocked list."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "facebook", "Facebook"
+        )
+        assert switch.is_on is False
+
+    def test_is_on_client_not_found(self, mock_coordinator: MagicMock) -> None:
+        """Test is_on returns None when client not found."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Nonexistent", "youtube", "YouTube"
+        )
+        assert switch.is_on is None
+
+    def test_available_when_per_client_services(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test switch is available when client uses per-client blocked services."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        assert switch.available is True
+
+    def test_unavailable_when_global_services(
+        self, mock_coordinator_global_services: MagicMock
+    ) -> None:
+        """Test switch is unavailable when client uses global blocked services."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator_global_services, "Office PC", "youtube", "YouTube"
+        )
+        assert switch.available is False
+
+    def test_unavailable_when_coordinator_fails(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test switch is unavailable when coordinator update fails."""
+        mock_coordinator.last_update_success = False
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        assert switch.available is False
+
+    def test_unavailable_when_client_not_found(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test switch is unavailable when client doesn't exist."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Nonexistent", "youtube", "YouTube"
+        )
+        assert switch.available is False
+
+    def test_icon_for_known_category(self, mock_coordinator: MagicMock) -> None:
+        """Test icon is set based on service category."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        # YouTube is in video_streaming category
+        assert switch.icon == "mdi:video"
+
+    def test_icon_for_unknown_service(self, mock_coordinator: MagicMock) -> None:
+        """Test icon defaults to block-helper for unknown services."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "unknown_service", "Unknown"
+        )
+        assert switch.icon == "mdi:block-helper"
+
+    def test_extra_state_attributes(self, mock_coordinator: MagicMock) -> None:
+        """Test extra state attributes include service info."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        attrs = switch.extra_state_attributes
+
+        assert attrs["service_id"] == "youtube"
+        assert attrs["service_name"] == "YouTube"
+        assert attrs["category"] == "Video Streaming"
+        assert attrs["uses_global_blocked_services"] is False
+        assert attrs["client_name"] == "Kids Tablet"
+
+    def test_extra_state_attributes_global_services(
+        self, mock_coordinator_global_services: MagicMock
+    ) -> None:
+        """Test extra state attributes when using global services."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator_global_services, "Office PC", "youtube", "YouTube"
+        )
+        attrs = switch.extra_state_attributes
+
+        assert attrs["uses_global_blocked_services"] is True
+
+    def test_device_info(self, mock_coordinator: MagicMock) -> None:
+        """Test device info links to client device."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        device_info = switch.device_info
+
+        assert device_info["name"] == "AdGuard Client: Kids Tablet"
+        assert device_info["manufacturer"] == "AdGuard"
+        assert device_info["model"] == "Client"
+
+    @pytest.mark.asyncio
+    async def test_turn_on_blocks_service(self, mock_coordinator: MagicMock) -> None:
+        """Test turning on adds service to blocked list."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "facebook", "Facebook"
+        )
+        await switch.async_turn_on()
+
+        mock_coordinator.client.update_client.assert_called_once()
+        call_args = mock_coordinator.client.update_client.call_args
+        updated_client = call_args[0][1]
+
+        # Should have facebook added to blocked services
+        assert "facebook" in updated_client.blocked_services
+        # Should also still have the existing blocked services
+        assert "youtube" in updated_client.blocked_services
+        assert "tiktok" in updated_client.blocked_services
+        # Should disable global blocked services
+        assert updated_client.use_global_blocked_services is False
+
+        mock_coordinator.async_request_refresh.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_turn_off_unblocks_service(self, mock_coordinator: MagicMock) -> None:
+        """Test turning off removes service from blocked list."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        await switch.async_turn_off()
+
+        mock_coordinator.client.update_client.assert_called_once()
+        call_args = mock_coordinator.client.update_client.call_args
+        updated_client = call_args[0][1]
+
+        # Should have youtube removed from blocked services
+        assert "youtube" not in updated_client.blocked_services
+        # Should still have tiktok blocked
+        assert "tiktok" in updated_client.blocked_services
+        # Should keep using per-client blocked services
+        assert updated_client.use_global_blocked_services is False
+
+        mock_coordinator.async_request_refresh.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_turn_on_does_nothing_when_client_not_found(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turning on does nothing when client doesn't exist."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Nonexistent", "youtube", "YouTube"
+        )
+        await switch.async_turn_on()
+
+        mock_coordinator.client.update_client.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_turn_off_does_nothing_when_client_not_found(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test turning off does nothing when client doesn't exist."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Nonexistent", "youtube", "YouTube"
+        )
+        await switch.async_turn_off()
+
+        mock_coordinator.client.update_client.assert_not_called()
+
+    def test_entity_category_is_config(self, mock_coordinator: MagicMock) -> None:
+        """Test entity category is CONFIG for organization."""
+        from homeassistant.const import EntityCategory
+
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "youtube", "YouTube"
+        )
+        assert switch.entity_category == EntityCategory.CONFIG
+
+    def test_icon_for_social_media_service(self, mock_coordinator: MagicMock) -> None:
+        """Test icon for social media category."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "facebook", "Facebook"
+        )
+        assert switch.icon == "mdi:account-group"
+
+    def test_icon_for_tiktok(self, mock_coordinator: MagicMock) -> None:
+        """Test icon for TikTok (social media)."""
+        switch = AdGuardClientBlockedServiceSwitch(
+            mock_coordinator, "Kids Tablet", "tiktok", "TikTok"
+        )
+        assert switch.icon == "mdi:account-group"

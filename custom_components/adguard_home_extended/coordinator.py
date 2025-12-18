@@ -165,11 +165,14 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
                     {
                         "name": c.name,
                         "ids": c.ids,
+                        "use_global_settings": c.use_global_settings,
                         "filtering_enabled": c.filtering_enabled,
                         "parental_enabled": c.parental_enabled,
                         "safebrowsing_enabled": c.safebrowsing_enabled,
                         "safesearch_enabled": c.safesearch_enabled,
-                        "blocked_services": c.blocked_services,
+                        "use_global_blocked_services": c.use_global_blocked_services,
+                        "blocked_services": c.blocked_services or [],
+                        "tags": c.tags or [],
                     }
                     for c in clients
                 ]
