@@ -120,17 +120,18 @@ tests/
 
 This project uses `bd` (beads) for all task tracking. **Do NOT use markdown TODOs or task lists.**
 
-### Workflow
+### Basic Commands
 ```bash
-bd ready                    # Find unblocked work
+bd ready                    # Find unblocked work (READY status)
+bd list --status open       # List all open issues
+bd show <id>                # View issue details and dependencies
 bd create "Task" -t task    # Create new issue
 bd update <id> --status in_progress
 bd close <id> --reason "Done"
-bd dep add <child> <parent> # Add dependency
 ```
 
 ### Issue Types
-- `epic` - Large features with subtasks
+- `epic` - Large features with multiple subtasks (container for related work)
 - `feature` - New functionality
 - `bug` - Something broken
 - `task` - Work items (docs, refactoring)
@@ -142,6 +143,68 @@ bd dep add <child> <parent> # Add dependency
 - `2` - Medium (default)
 - `3` - Low (polish)
 - `4` - Backlog
+
+### Dependencies and Epics
+
+**Dependency Direction**: Epic depends on children, NOT children depend on epic.
+- The epic is "done" when all child tasks are complete
+- Child tasks are READY to work on immediately (not blocked by epic)
+
+```bash
+# CORRECT: Epic depends on its children
+bd dep add <epic-id> <child-id>    # Epic blocked until child done
+
+# WRONG: Don't make children depend on epic
+bd dep add <child-id> <epic-id>    # This blocks children unnecessarily
+```
+
+**Viewing Dependencies**:
+```bash
+bd dep tree <id>            # Show dependency tree
+bd show <id>                # Shows "Depends on" and "Blocks" sections
+```
+
+**Task-to-Task Dependencies** (for sequencing work):
+```bash
+# If task B requires task A to be done first:
+bd dep add <task-B-id> <task-A-id>   # B depends on A
+```
+
+### Creating Well-Structured Issues
+
+**Key Principle**: Write issues assuming a separate agent with NO prior context will work on them. Each issue should be fully self-contained with all information needed to complete the task.
+
+When creating issues, include:
+
+1. **Summary** - One-line description of what needs to be done
+2. **Background** - Why this is needed, context
+3. **Current State** - What exists today (code references)
+4. **Implementation** - Specific steps, code examples, file locations
+5. **Testing** - Required test cases
+6. **API Reference** - Relevant endpoints/schemas
+7. **Acceptance Criteria** - Definition of done
+
+Example:
+```bash
+bd create "Add clear_dns_cache service" -t feature -p 1 --body "## Summary
+Implement HA service to clear AdGuard Home DNS cache.
+
+## Current State
+API endpoint exists but not implemented in client.
+
+## Implementation
+1. Add API_CACHE_CLEAR constant
+2. Add clear_dns_cache() method to api/client.py
+3. Add service handler in __init__.py
+4. Add service definition in services.yaml
+
+## Testing
+- test_clear_dns_cache_api
+- test_clear_dns_cache_service
+
+## API Reference
+POST /control/cache_clear"
+```
 
 ## Testing Requirements
 - All new features require tests
