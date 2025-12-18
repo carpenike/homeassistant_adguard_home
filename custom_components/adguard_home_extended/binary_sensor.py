@@ -41,7 +41,8 @@ BINARY_SENSOR_TYPES: tuple[AdGuardHomeBinarySensorEntityDescription, ...] = (
         key="protection_enabled",
         translation_key="protection_enabled",
         icon="mdi:shield",
-        device_class=BinarySensorDeviceClass.SAFETY,
+        # Note: Do NOT use BinarySensorDeviceClass.SAFETY here - it has inverted
+        # semantics (True=Unsafe, False=Safe) which is backwards for protection status
         is_on_fn=lambda data: (data.status.protection_enabled if data.status else None),
     ),
     AdGuardHomeBinarySensorEntityDescription(

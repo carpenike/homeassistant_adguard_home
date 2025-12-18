@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.4] - 2025-12-18
+
+### Fixed
+
+- **Protection Enabled showing "Unsafe"** - Removed `BinarySensorDeviceClass.SAFETY` from the protection_enabled binary sensor. The SAFETY device class has inverted semantics (True=Unsafe) which was incorrect for protection status. Now displays "On"/"Off" instead
+
 ## [0.3.3] - 2025-12-18
 
 ### Added
