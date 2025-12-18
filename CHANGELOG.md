@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.3] - 2025-12-18
+
+### Added
+
+- **Configurable icon color** - New "Service icon color" option in integration settings allows customizing the color of blocked service icons. Default is `#44739e` (Home Assistant's default icon color)
+- SVG processing utilities (`svg_utils.py`) that normalize icon size and apply fill color
+
+### Changed
+
+- Blocked service icons are now processed to normalize size (removing hardcoded width/height, ensuring viewBox) and apply configurable fill color for theme compatibility
+
 ## [0.3.2] - 2025-12-18
 
 ### Fixed

@@ -25,6 +25,7 @@ class TestCreateClientEntities:
         coordinator = MagicMock()
         coordinator.config_entry = MagicMock()
         coordinator.config_entry.entry_id = "test_entry"
+        coordinator.config_entry.options = {"icon_color": "#44739e"}
         coordinator.data = AdGuardHomeData()
         coordinator.data.clients = [
             {
@@ -169,6 +170,9 @@ class TestCreateClientEntities:
             {"id": "facebook", "name": "Facebook", "icon_svg": "PHN2Zy8+"},
             {"id": "youtube", "name": "YouTube", "icon_svg": ""},
         ]
+        # Mock config_entry.options for icon color
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.options = {"icon_color": "#44739e"}
         coordinator.client = AsyncMock()
 
         hass = MagicMock()
@@ -187,7 +191,9 @@ class TestCreateClientEntities:
             e for e in blocked_service_switches if e._service_id == "facebook"
         )
         assert facebook_switch._icon_svg == "PHN2Zy8+"
-        assert facebook_switch.entity_picture == "data:image/svg+xml;base64,PHN2Zy8+"
+        # entity_picture should be processed SVG as data URL
+        assert facebook_switch.entity_picture is not None
+        assert facebook_switch.entity_picture.startswith("data:image/svg+xml;base64,")
         # Should NOT have MDI icon when SVG is provided
         assert facebook_switch.icon == ""
 
@@ -1344,6 +1350,7 @@ class TestClientBlockedServiceSwitch:
         coordinator = MagicMock()
         coordinator.config_entry = MagicMock()
         coordinator.config_entry.entry_id = "test_entry"
+        coordinator.config_entry.options = {"icon_color": "#44739e"}
         coordinator.data = AdGuardHomeData()
         coordinator.data.clients = [
             {
@@ -1623,7 +1630,9 @@ class TestClientBlockedServiceSwitch:
             icon_svg="PHN2Zy8+",  # Base64-encoded SVG
         )
 
-        assert switch.entity_picture == "data:image/svg+xml;base64,PHN2Zy8+"
+        # entity_picture should be processed SVG as data URL
+        assert switch.entity_picture is not None
+        assert switch.entity_picture.startswith("data:image/svg+xml;base64,")
         # Icon should be empty string when SVG is provided
         assert switch.icon == ""
 

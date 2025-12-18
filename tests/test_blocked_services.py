@@ -77,6 +77,8 @@ class TestBlockedServiceSwitch:
         coordinator = MagicMock()
         coordinator.config_entry = MagicMock()
         coordinator.config_entry.entry_id = "test_entry"
+        # Mock options.get to return defaults
+        coordinator.config_entry.options = {"icon_color": "#44739e"}
         coordinator.data = AdGuardHomeData()
         coordinator.data.blocked_services = ["facebook", "tiktok"]
         coordinator.data.available_services = [
@@ -170,7 +172,9 @@ class TestBlockedServiceSwitch:
             icon_svg="PHN2Zy8+",  # Base64-encoded SVG
         )
 
-        assert switch.entity_picture == "data:image/svg+xml;base64,PHN2Zy8+"
+        # entity_picture should return processed SVG as data URL
+        assert switch.entity_picture is not None
+        assert switch.entity_picture.startswith("data:image/svg+xml;base64,")
         # Should NOT have MDI icon when SVG is provided
         assert not hasattr(switch, "_attr_icon") or switch._attr_icon is None
 
@@ -440,6 +444,9 @@ class TestAsyncSetupEntry:
             {"id": "youtube", "name": "YouTube", "icon_svg": ""},
         ]
         coordinator.data.blocked_services = []
+        # Mock config_entry.options for icon color
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.options = {"icon_color": "#44739e"}
 
         entry = MagicMock()
         entry.runtime_data = coordinator
@@ -454,7 +461,9 @@ class TestAsyncSetupEntry:
         # First entity should have icon_svg and entity_picture
         facebook_entity = entities[0]
         assert facebook_entity._icon_svg == "PHN2Zy8+"
-        assert facebook_entity.entity_picture == "data:image/svg+xml;base64,PHN2Zy8+"
+        # entity_picture should be processed SVG as data URL
+        assert facebook_entity.entity_picture is not None
+        assert facebook_entity.entity_picture.startswith("data:image/svg+xml;base64,")
         # Should NOT have MDI icon when SVG is provided
         assert not hasattr(facebook_entity, "_attr_icon")
 

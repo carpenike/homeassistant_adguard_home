@@ -14,11 +14,14 @@ DEFAULT_SCAN_INTERVAL: Final = 30
 DEFAULT_QUERY_LOG_LIMIT: Final = 100
 DEFAULT_ATTR_TOP_ITEMS_LIMIT: Final = 10
 DEFAULT_ATTR_LIST_LIMIT: Final = 20
+# Default icon color - Home Assistant's default icon color (works on both light/dark themes)
+DEFAULT_ICON_COLOR: Final = "#44739e"
 
 # Configuration keys
 CONF_QUERY_LOG_LIMIT: Final = "query_log_limit"
 CONF_ATTR_TOP_ITEMS_LIMIT: Final = "attr_top_items_limit"
 CONF_ATTR_LIST_LIMIT: Final = "attr_list_limit"
+CONF_ICON_COLOR: Final = "icon_color"
 
 # =============================================================================
 # API Endpoints

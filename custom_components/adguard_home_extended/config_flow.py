@@ -32,9 +32,11 @@ from .api.client import (
 from .const import (
     CONF_ATTR_LIST_LIMIT,
     CONF_ATTR_TOP_ITEMS_LIMIT,
+    CONF_ICON_COLOR,
     CONF_QUERY_LOG_LIMIT,
     DEFAULT_ATTR_LIST_LIMIT,
     DEFAULT_ATTR_TOP_ITEMS_LIMIT,
+    DEFAULT_ICON_COLOR,
     DEFAULT_PORT,
     DEFAULT_QUERY_LOG_LIMIT,
     DEFAULT_SCAN_INTERVAL,
@@ -384,6 +386,9 @@ class AdGuardHomeOptionsFlow(OptionsFlow):
         current_attr_list_limit = self.config_entry.options.get(
             CONF_ATTR_LIST_LIMIT, DEFAULT_ATTR_LIST_LIMIT
         )
+        current_icon_color = self.config_entry.options.get(
+            CONF_ICON_COLOR, DEFAULT_ICON_COLOR
+        )
 
         return self.async_show_form(
             step_id="init",
@@ -405,6 +410,10 @@ class AdGuardHomeOptionsFlow(OptionsFlow):
                         CONF_ATTR_LIST_LIMIT,
                         default=current_attr_list_limit,
                     ): vol.All(vol.Coerce(int), vol.Range(min=1, max=100)),
+                    vol.Required(
+                        CONF_ICON_COLOR,
+                        default=current_icon_color,
+                    ): str,
                 }
             ),
         )

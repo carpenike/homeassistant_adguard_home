@@ -53,13 +53,15 @@
           "scan_interval": "Scan interval (seconds)",
           "query_log_limit": "Query log limit",
           "attr_top_items_limit": "Top items limit",
-          "attr_list_limit": "List items limit"
+          "attr_list_limit": "List items limit",
+          "icon_color": "Service icon color"
         },
         "data_description": {
           "scan_interval": "How often to poll the AdGuard Home API for updates (10-3600 seconds).",
           "query_log_limit": "Maximum number of query log entries to fetch (1-10000). Higher values provide more history but may impact performance.",
           "attr_top_items_limit": "Maximum number of top items (clients, domains, recent queries) shown in sensor attributes (1-100).",
-          "attr_list_limit": "Maximum number of list items (rewrites, leases) shown in sensor attributes (1-100)."
+          "attr_list_limit": "Maximum number of list items (rewrites, leases) shown in sensor attributes (1-100).",
+          "icon_color": "Hex color for blocked service icons (e.g., #44739e). Use lighter colors for dark themes."
         }
       }
     }

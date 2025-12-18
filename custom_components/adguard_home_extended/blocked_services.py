@@ -11,8 +11,9 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import CONF_ICON_COLOR, DEFAULT_ICON_COLOR, DOMAIN
 from .coordinator import AdGuardHomeDataUpdateCoordinator
+from .svg_utils import process_svg_icon
 
 if TYPE_CHECKING:  # pragma: no cover
     from . import AdGuardHomeConfigEntry
@@ -205,8 +206,11 @@ class AdGuardBlockedServiceSwitch(
     def entity_picture(self) -> str | None:
         """Return the entity picture (AdGuard Home's SVG icon as data URL)."""
         if self._icon_svg:
-            # The icon_svg from AdGuard Home is already Base64-encoded
-            return f"data:image/svg+xml;base64,{self._icon_svg}"
+            # Get icon color from options, fallback to default
+            icon_color = self.coordinator.config_entry.options.get(
+                CONF_ICON_COLOR, DEFAULT_ICON_COLOR
+            )
+            return process_svg_icon(self._icon_svg, icon_color)
         return None
 
     @property
