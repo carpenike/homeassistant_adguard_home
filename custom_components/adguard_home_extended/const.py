@@ -67,6 +67,7 @@ API_QUERYLOG_CLEAR: Final = "/control/querylog_clear"
 # Safe Browsing APIs (v0.100+)
 # Protects against malicious and phishing websites
 # -----------------------------------------------------------------------------
+API_SAFEBROWSING_STATUS: Final = "/control/safebrowsing/status"
 API_SAFEBROWSING_ENABLE: Final = "/control/safebrowsing/enable"
 API_SAFEBROWSING_DISABLE: Final = "/control/safebrowsing/disable"
 
@@ -74,6 +75,7 @@ API_SAFEBROWSING_DISABLE: Final = "/control/safebrowsing/disable"
 # Parental Control APIs (v0.100+)
 # Blocks adult content across the network
 # -----------------------------------------------------------------------------
+API_PARENTAL_STATUS: Final = "/control/parental/status"
 API_PARENTAL_ENABLE: Final = "/control/parental/enable"
 API_PARENTAL_DISABLE: Final = "/control/parental/disable"
 

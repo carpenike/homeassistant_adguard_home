@@ -25,13 +25,14 @@ class TestSwitchEntityDescriptions:
         data.status = AdGuardHomeStatus(
             protection_enabled=True,
             running=True,
-            safebrowsing_enabled=True,
-            parental_enabled=True,
-            safesearch_enabled=True,
             version="0.107.43",
         )
         data.filtering = FilteringStatus(enabled=True)
         data.dns_info = DnsInfo(cache_enabled=True)
+        # These are now fetched from separate endpoints
+        data.safebrowsing_enabled = True
+        data.parental_enabled = True
+        data.safesearch_enabled = True
         return data
 
     def test_protection_switch_is_on(self, data_with_status: AdGuardHomeData) -> None:
@@ -82,8 +83,8 @@ class TestSwitchEntityDescriptions:
         data.status = AdGuardHomeStatus(
             protection_enabled=True,
             running=True,
-            safebrowsing_enabled=False,
         )
+        data.safebrowsing_enabled = False
 
         safe_browsing_desc = next(d for d in SWITCH_TYPES if d.key == "safe_browsing")
         is_on = safe_browsing_desc.is_on_fn(data)
@@ -107,8 +108,8 @@ class TestSwitchEntityDescriptions:
         data.status = AdGuardHomeStatus(
             protection_enabled=True,
             running=True,
-            parental_enabled=False,
         )
+        data.parental_enabled = False
 
         parental_desc = next(d for d in SWITCH_TYPES if d.key == "parental_control")
         is_on = parental_desc.is_on_fn(data)
@@ -130,8 +131,8 @@ class TestSwitchEntityDescriptions:
         data.status = AdGuardHomeStatus(
             protection_enabled=True,
             running=True,
-            safesearch_enabled=False,
         )
+        data.safesearch_enabled = False
 
         safe_search_desc = next(d for d in SWITCH_TYPES if d.key == "safe_search")
         is_on = safe_search_desc.is_on_fn(data)

@@ -54,13 +54,15 @@ class AdGuardHomeStatus:
     Per OpenAPI ServerStatus schema, required fields are:
     dns_addresses, dns_port, http_port, protection_enabled,
     protection_disabled_until (nullable), running, version, language.
+
+    Note: safebrowsing_enabled, parental_enabled, and safesearch_enabled
+    are NOT returned by the /control/status endpoint. They must be fetched
+    from separate endpoints: /control/safebrowsing/status,
+    /control/parental/status, and /control/safesearch/status.
     """
 
     protection_enabled: bool
     running: bool
-    safebrowsing_enabled: bool = False
-    parental_enabled: bool = False
-    safesearch_enabled: bool = False
     dns_addresses: list[str] = field(default_factory=list)
     dns_port: int = 53
     http_port: int = 3000
@@ -73,26 +75,10 @@ class AdGuardHomeStatus:
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdGuardHomeStatus:
-        """Create instance from API response dict.
-
-        Note: safesearch in the API response is an object like:
-        {"enabled": true, "bing": true, "duckduckgo": true, ...}
-        We extract just the 'enabled' field.
-        """
-        # Handle safesearch which is a nested object in the API response
-        safesearch_data = data.get("safesearch", {})
-        safesearch_enabled = (
-            safesearch_data.get("enabled", False)
-            if isinstance(safesearch_data, dict)
-            else bool(safesearch_data)
-        )
-
+        """Create instance from API response dict."""
         return cls(
             protection_enabled=data.get("protection_enabled", False),
             running=data.get("running", False),
-            safebrowsing_enabled=data.get("safebrowsing_enabled", False),
-            parental_enabled=data.get("parental_enabled", False),
-            safesearch_enabled=safesearch_enabled,
             dns_addresses=data.get("dns_addresses", []),
             dns_port=data.get("dns_port", 53),
             http_port=data.get("http_port", 3000),

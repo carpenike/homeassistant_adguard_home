@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.6] - 2025-12-18
+
+### Fixed
+
+- **Safe Browsing, Parental Control, and Safe Search switches always show OFF** - The integration incorrectly expected these status fields in the `/control/status` API response, but AdGuard Home returns them from separate endpoints (`/control/safebrowsing/status`, `/control/parental/status`, `/control/safesearch/status`). Now fetches each status from its correct endpoint
+- **Protection toggle shows error toast despite working** - The `/control/protection` endpoint returns `OK` as `text/plain` instead of JSON. The API client now checks the `Content-Type` header before attempting JSON parsing, preventing "Expecting value: line 1 column 1 (char 0)" errors
+
+### Changed
+
+- Removed obsolete `safebrowsing_enabled`, `parental_enabled`, `safesearch_enabled` fields from `AdGuardHomeStatus` model since they were never returned by the API
+- Added `safebrowsing_enabled`, `parental_enabled`, `safesearch_enabled` fields to `AdGuardHomeData` coordinator data class
+- Added `get_safebrowsing_status()` and `get_parental_status()` methods to API client
+
 ## [0.2.5] - 2025-12-18
 
 ### Fixed

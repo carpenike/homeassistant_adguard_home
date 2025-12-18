@@ -125,9 +125,6 @@ class TestAdGuardHomeStatus:
         data = {
             "protection_enabled": True,
             "running": True,
-            "safebrowsing_enabled": True,
-            "parental_enabled": True,
-            "safesearch": {"enabled": True, "bing": True, "duckduckgo": True},
             "dns_addresses": ["192.168.1.1", "192.168.1.2"],
             "dns_port": 53,
             "http_port": 3000,
@@ -142,9 +139,6 @@ class TestAdGuardHomeStatus:
 
         assert status.protection_enabled is True
         assert status.running is True
-        assert status.safebrowsing_enabled is True
-        assert status.parental_enabled is True
-        assert status.safesearch_enabled is True
         assert status.dns_addresses == ["192.168.1.1", "192.168.1.2"]
         assert status.dns_port == 53
         assert status.http_port == 3000
@@ -161,9 +155,6 @@ class TestAdGuardHomeStatus:
 
         assert status.protection_enabled is False
         assert status.running is False
-        assert status.safebrowsing_enabled is False
-        assert status.parental_enabled is False
-        assert status.safesearch_enabled is False
         assert status.dns_addresses == []
         assert status.dns_port == 53
         assert status.http_port == 3000
@@ -173,28 +164,6 @@ class TestAdGuardHomeStatus:
         assert status.protection_disabled_duration == 0
         assert status.dhcp_available is False
         assert status.start_time == 0.0
-
-    def test_from_dict_safesearch_disabled(self) -> None:
-        """Test parsing safesearch when disabled."""
-        data = {
-            "protection_enabled": True,
-            "running": True,
-            "safesearch": {"enabled": False},
-        }
-        status = AdGuardHomeStatus.from_dict(data)
-
-        assert status.safesearch_enabled is False
-
-    def test_from_dict_safesearch_legacy_format(self) -> None:
-        """Test parsing safesearch when it's a boolean (legacy format)."""
-        data = {
-            "protection_enabled": True,
-            "running": True,
-            "safesearch": True,
-        }
-        status = AdGuardHomeStatus.from_dict(data)
-
-        assert status.safesearch_enabled is True
 
 
 class TestAdGuardHomeStats:

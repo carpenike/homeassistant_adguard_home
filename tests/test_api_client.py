@@ -21,9 +21,21 @@ from custom_components.adguard_home_extended.api.models import (
 
 
 def create_mock_response(
-    status: int = 200, json_data: dict | list | None = None, content_length: int = 100
+    status: int = 200,
+    json_data: dict | list | None = None,
+    content_length: int = 100,
+    text_body: str | None = None,
+    content_type: str = "application/json",
 ):
-    """Create a mock response that works as an async context manager."""
+    """Create a mock response that works as an async context manager.
+
+    Args:
+        status: HTTP status code
+        json_data: JSON data to return (will be serialized)
+        content_length: Content length header value
+        text_body: Plain text body (used instead of json_data)
+        content_type: Content-Type header value
+    """
     import json as json_module
 
     mock_response = MagicMock()
@@ -31,8 +43,12 @@ def create_mock_response(
     mock_response.content_length = content_length if json_data is not None else 0
     mock_response.json = AsyncMock(return_value=json_data)
     mock_response.raise_for_status = MagicMock()
+    mock_response.headers = {"Content-Type": content_type}
+
     # Add read() mock for the new implementation that reads body first
-    if json_data is not None:
+    if text_body is not None:
+        mock_response.read = AsyncMock(return_value=text_body.encode())
+    elif json_data is not None:
         mock_response.read = AsyncMock(
             return_value=json_module.dumps(json_data).encode()
         )
@@ -403,6 +419,29 @@ class TestAdGuardHomeClient:
         assert "/control/protection" in call_args[0][1]
 
     @pytest.mark.asyncio
+    async def test_set_protection_handles_text_plain_ok_response(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test that protection toggle handles text/plain 'OK' response.
+
+        The /control/protection endpoint returns 'OK' as text/plain instead
+        of JSON. This should be handled gracefully without JSON parse errors.
+        """
+        mock_response = create_mock_response(
+            status=200,
+            text_body="OK",
+            content_type="text/plain; charset=utf-8",
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        # Should not raise JSONDecodeError
+        result = await client.set_protection(True)
+
+        # Result should be None for non-JSON responses
+        assert result is None
+        mock_session.request.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_get_blocked_services_new_format(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
@@ -638,6 +677,7 @@ class TestAdGuardHomeClient:
         mock_response.status = 200
         mock_response.content_length = None  # Chunked transfer encoding
         mock_response.raise_for_status = MagicMock()
+        mock_response.headers = {"Content-Type": "application/json"}
         # read() returns the body
         import json as json_module
 
@@ -665,6 +705,7 @@ class TestAdGuardHomeClient:
         mock_response.content_length = 0
         mock_response.raise_for_status = MagicMock()
         mock_response.read = AsyncMock(return_value=b"")
+        mock_response.headers = {"Content-Type": "application/json"}
 
         mock_session.request.return_value = MockContextManager(mock_response)
 

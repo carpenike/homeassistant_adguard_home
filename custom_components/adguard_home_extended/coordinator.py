@@ -51,6 +51,10 @@ class AdGuardHomeData:
         self.stats: AdGuardHomeStats | None = None
         self.filtering: FilteringStatus | None = None
         self.dns_info: DnsInfo | None = None
+        # Protection status fetched from separate endpoints (not in /status response)
+        self.safebrowsing_enabled: bool = False
+        self.parental_enabled: bool = False
+        self.safesearch_enabled: bool = False
         self.blocked_services: list[str] = []
         self.blocked_services_schedule: dict[str, Any] | None = None
         self.available_services: list[dict[str, Any]] = []
@@ -134,6 +138,24 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
 
             # Fetch stats - required
             data.stats = await self.client.get_stats()
+
+            # Fetch protection status from separate endpoints
+            # Note: The /control/status endpoint does NOT include these fields
+            try:
+                data.safebrowsing_enabled = await self.client.get_safebrowsing_status()
+            except AdGuardHomeConnectionError as err:
+                _LOGGER.debug("Failed to fetch safebrowsing status: %s", err)
+
+            try:
+                data.parental_enabled = await self.client.get_parental_status()
+            except AdGuardHomeConnectionError as err:
+                _LOGGER.debug("Failed to fetch parental status: %s", err)
+
+            try:
+                safesearch = await self.client.get_safesearch_settings()
+                data.safesearch_enabled = safesearch.enabled
+            except AdGuardHomeConnectionError as err:
+                _LOGGER.debug("Failed to fetch safesearch status: %s", err)
 
             # Fetch filtering status
             try:

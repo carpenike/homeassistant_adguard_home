@@ -32,6 +32,7 @@ from ..const import (
     API_FILTERING_STATUS,
     API_PARENTAL_DISABLE,
     API_PARENTAL_ENABLE,
+    API_PARENTAL_STATUS,
     API_PROTECTION,
     API_QUERYLOG,
     API_QUERYLOG_CLEAR,
@@ -43,6 +44,7 @@ from ..const import (
     API_REWRITE_UPDATE,
     API_SAFEBROWSING_DISABLE,
     API_SAFEBROWSING_ENABLE,
+    API_SAFEBROWSING_STATUS,
     API_SAFESEARCH_SETTINGS,
     API_SAFESEARCH_STATUS,
     API_STATS,
@@ -192,7 +194,15 @@ class AdGuardHomeClient:
                 if not content:
                     return None
 
-                return json.loads(content)
+                # Some endpoints return "OK" as text/plain instead of JSON
+                # Only attempt JSON parsing if content-type indicates JSON
+                content_type = response.headers.get("Content-Type", "")
+                if "application/json" in content_type:
+                    return json.loads(content)
+
+                # For non-JSON responses (like "OK"), just return None
+                # The operation succeeded (no exception raised)
+                return None
 
         except TimeoutError as err:
             raise AdGuardHomeConnectionError(
@@ -252,10 +262,28 @@ class AdGuardHomeClient:
         """
         await self.set_protection(enabled=False, duration_ms=duration_ms)
 
+    async def get_safebrowsing_status(self) -> bool:
+        """Get safe browsing status.
+
+        Returns:
+            True if safe browsing is enabled, False otherwise.
+        """
+        data = await self._get(API_SAFEBROWSING_STATUS)
+        return data.get("enabled", False) if data else False
+
     async def set_safebrowsing(self, enabled: bool) -> None:
         """Enable or disable safe browsing."""
         endpoint = API_SAFEBROWSING_ENABLE if enabled else API_SAFEBROWSING_DISABLE
         await self._post(endpoint)
+
+    async def get_parental_status(self) -> bool:
+        """Get parental control status.
+
+        Returns:
+            True if parental control is enabled, False otherwise.
+        """
+        data = await self._get(API_PARENTAL_STATUS)
+        return data.get("enabled", False) if data else False
 
     async def set_parental(self, enabled: bool) -> None:
         """Enable or disable parental control."""

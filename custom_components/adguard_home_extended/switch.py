@@ -54,9 +54,7 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
         key="safe_browsing",
         translation_key="safe_browsing",
         icon="mdi:shield-lock",
-        is_on_fn=lambda data: (
-            data.status.safebrowsing_enabled if data.status else None
-        ),
+        is_on_fn=lambda data: data.safebrowsing_enabled if data else None,
         turn_on_fn=lambda client: client.set_safebrowsing(True),
         turn_off_fn=lambda client: client.set_safebrowsing(False),
     ),
@@ -64,7 +62,7 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
         key="parental_control",
         translation_key="parental_control",
         icon="mdi:account-child",
-        is_on_fn=lambda data: (data.status.parental_enabled if data.status else None),
+        is_on_fn=lambda data: data.parental_enabled if data else None,
         turn_on_fn=lambda client: client.set_parental(True),
         turn_off_fn=lambda client: client.set_parental(False),
     ),
@@ -72,7 +70,7 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
         key="safe_search",
         translation_key="safe_search",
         icon="mdi:magnify-scan",
-        is_on_fn=lambda data: (data.status.safesearch_enabled if data.status else None),
+        is_on_fn=lambda data: data.safesearch_enabled if data else None,
         turn_on_fn=lambda client: client.set_safesearch(True),
         turn_off_fn=lambda client: client.set_safesearch(False),
     ),
