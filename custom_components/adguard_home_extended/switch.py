@@ -217,6 +217,7 @@ class ClientEntityManager:
 
         from .api.models import AdGuardHomeClient as ClientConfig
         from .client_entities import (
+            AdGuardClientBlockedServiceSwitch,
             AdGuardClientFilteringSwitch,
             AdGuardClientParentalSwitch,
             AdGuardClientSafeBrowsingSwitch,
@@ -251,6 +252,19 @@ class ClientEntityManager:
                     ),
                 ]
             )
+
+            # Create per-client blocked service switches for each available service
+            # These allow granular control over which services are blocked per client
+            if self._coordinator.data.available_services:
+                for service in self._coordinator.data.available_services:
+                    new_entities.append(
+                        AdGuardClientBlockedServiceSwitch(
+                            coordinator=self._coordinator,
+                            client_name=client.name,
+                            service_id=service["id"],
+                            service_name=service["name"],
+                        )
+                    )
 
             self._tracked_clients.add(client.name)
 

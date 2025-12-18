@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2025-12-18
+
+### Fixed
+
+- **Per-client blocked service switches not being created** - The `ClientEntityManager` was not creating `AdGuardClientBlockedServiceSwitch` entities for each available service per client. This prevented granular per-client service blocking controls from appearing in Home Assistant. Now when `available_services` is populated in the coordinator, each client gets individual switches for every blockable service (e.g., "Block Facebook", "Block TikTok", etc.)
+
+### Added
+
+- New tests for `ClientEntityManager` blocked service entity creation (4 new tests)
+
 ## [0.2.8] - 2025-12-18
 
 ### Fixed

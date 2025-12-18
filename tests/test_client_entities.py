@@ -995,6 +995,223 @@ class TestClientEntityManager:
         unsubscribe_mock.assert_called_once()
         assert manager._unsubscribe is None
 
+    @pytest.mark.asyncio
+    async def test_initial_setup_creates_blocked_service_entities(
+        self,
+    ) -> None:
+        """Test that setup creates per-client blocked service switches when available_services present."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Client1",
+                "ids": ["192.168.1.100"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": False,
+                "blocked_services": ["facebook"],
+                "tags": [],
+            },
+        ]
+        # Add available services
+        coordinator.data.available_services = [
+            {"id": "facebook", "name": "Facebook"},
+            {"id": "youtube", "name": "YouTube"},
+            {"id": "tiktok", "name": "TikTok"},
+        ]
+        coordinator.hass = MagicMock()
+        coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(coordinator, async_add_entities)
+        await manager.async_setup()
+
+        # Should have created 6 base entities + 3 blocked service entities = 9 total
+        assert async_add_entities.call_count == 1
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 9
+
+        # Verify entity types
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientBlockedServiceSwitch,
+        )
+
+        blocked_service_entities = [
+            e for e in entities if isinstance(e, AdGuardClientBlockedServiceSwitch)
+        ]
+        assert len(blocked_service_entities) == 3
+
+        # Verify service IDs
+        service_ids = {e._service_id for e in blocked_service_entities}
+        assert service_ids == {"facebook", "youtube", "tiktok"}
+
+    @pytest.mark.asyncio
+    async def test_new_client_gets_blocked_service_entities(
+        self,
+    ) -> None:
+        """Test that dynamically added clients also get blocked service switches."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = []
+        coordinator.data.available_services = [
+            {"id": "facebook", "name": "Facebook"},
+            {"id": "youtube", "name": "YouTube"},
+        ]
+        coordinator.hass = MagicMock()
+        coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(coordinator, async_add_entities)
+        await manager.async_setup()
+
+        # Initially no entities (no clients)
+        assert async_add_entities.call_count == 0
+
+        # Add a new client
+        coordinator.data.clients = [
+            {
+                "name": "NewClient",
+                "ids": ["192.168.1.200"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": False,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+
+        # Trigger update
+        await manager._async_add_new_client_entities()
+
+        # Should have 6 base + 2 blocked service = 8 entities
+        assert async_add_entities.call_count == 1
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 8
+
+    @pytest.mark.asyncio
+    async def test_multiple_clients_with_services(
+        self,
+    ) -> None:
+        """Test that multiple clients each get their own blocked service switches."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Client1",
+                "ids": ["192.168.1.100"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": False,
+                "blocked_services": [],
+                "tags": [],
+            },
+            {
+                "name": "Client2",
+                "ids": ["192.168.1.101"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        coordinator.data.available_services = [
+            {"id": "facebook", "name": "Facebook"},
+            {"id": "tiktok", "name": "TikTok"},
+        ]
+        coordinator.hass = MagicMock()
+        coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(coordinator, async_add_entities)
+        await manager.async_setup()
+
+        # 2 clients × (6 base + 2 services) = 16 entities
+        assert async_add_entities.call_count == 1
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 16
+
+        # Verify we have blocked service entities for both clients
+        from custom_components.adguard_home_extended.client_entities import (
+            AdGuardClientBlockedServiceSwitch,
+        )
+
+        blocked_service_entities = [
+            e for e in entities if isinstance(e, AdGuardClientBlockedServiceSwitch)
+        ]
+        assert len(blocked_service_entities) == 4  # 2 clients × 2 services
+
+        # Verify client names
+        client_names = {e._client_name for e in blocked_service_entities}
+        assert client_names == {"Client1", "Client2"}
+
+    @pytest.mark.asyncio
+    async def test_empty_available_services_list(
+        self,
+    ) -> None:
+        """Test that empty available_services list still creates base entities only."""
+        from custom_components.adguard_home_extended.switch import ClientEntityManager
+
+        coordinator = MagicMock()
+        coordinator.config_entry = MagicMock()
+        coordinator.config_entry.entry_id = "test_entry"
+        coordinator.data = AdGuardHomeData()
+        coordinator.data.clients = [
+            {
+                "name": "Client1",
+                "ids": ["192.168.1.100"],
+                "filtering_enabled": True,
+                "parental_enabled": False,
+                "safebrowsing_enabled": False,
+                "safesearch_enabled": False,
+                "use_global_settings": True,
+                "use_global_blocked_services": True,
+                "blocked_services": [],
+                "tags": [],
+            },
+        ]
+        # Empty list instead of None
+        coordinator.data.available_services = []
+        coordinator.hass = MagicMock()
+        coordinator.async_add_listener = MagicMock(return_value=MagicMock())
+
+        async_add_entities = MagicMock()
+
+        manager = ClientEntityManager(coordinator, async_add_entities)
+        await manager.async_setup()
+
+        # Only 6 base entities, no blocked service entities
+        assert async_add_entities.call_count == 1
+        entities = async_add_entities.call_args[0][0]
+        assert len(entities) == 6
+
 
 class TestClientBlockedServiceSwitch:
     """Tests for AdGuardClientBlockedServiceSwitch."""
