@@ -7,7 +7,7 @@ name = "homeassistant-adguard-home-extended"
 version = "0.1.0"
 description = "Extended AdGuard Home integration for Home Assistant"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
 requires-python = ">=3.12"
 authors = [
     {name = "Ryan", email = "ryan@example.com"},
@@ -15,7 +15,6 @@ authors = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
 ]
@@ -31,6 +30,9 @@ dev = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["custom_components*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
