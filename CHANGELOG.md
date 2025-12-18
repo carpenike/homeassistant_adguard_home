@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2025-12-18
+
+### Fixed
+
+- **Parental/Safe Browsing toggles fail on AdGuard Home v0.107.62** - aiohttp still sends `Content-Type: application/octet-stream` for empty POST bodies even with `skip_auto_headers`. Now skip both `Content-Type` and `Content-Length` headers to ensure truly empty requests
+
 ## [0.2.3] - 2025-12-18
 
 ### Fixed

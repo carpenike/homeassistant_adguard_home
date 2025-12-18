@@ -154,6 +154,10 @@ class AdGuardHomeClient:
         # AdGuard Home v0.107.15+ requires that POST requests without a body
         # must NOT have Content-Type header set (returns 415 Unsupported Media Type)
         # This affects endpoints like /parental/enable, /safebrowsing/enable, etc.
+        #
+        # Important: aiohttp automatically adds Content-Type: application/octet-stream
+        # for POST requests even when there's no body. We must use skip_auto_headers
+        # AND avoid passing any data/json parameter to prevent this.
         request_kwargs: dict[str, Any] = {
             "headers": headers,
             "timeout": self._timeout,
@@ -162,11 +166,11 @@ class AdGuardHomeClient:
             headers["Content-Type"] = "application/json"
             request_kwargs["json"] = data
         else:
-            # Explicitly signal no Content-Type for no-body requests
-            # This overrides any default Content-Type that might be set on the session
-            # Setting to None or empty string doesn't work with aiohttp, but
-            # we can use skip_auto_headers to prevent aiohttp from adding it
-            request_kwargs["skip_auto_headers"] = {"Content-Type"}
+            # For no-body requests, we must:
+            # 1. Use skip_auto_headers to prevent aiohttp from auto-adding Content-Type
+            # 2. NOT pass any data/json parameter (even None)
+            # This ensures a truly empty body with no Content-Type header
+            request_kwargs["skip_auto_headers"] = {"Content-Type", "Content-Length"}
 
         try:
             async with self._session.request(
