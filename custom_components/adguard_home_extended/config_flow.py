@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, OptionsFlow
@@ -38,6 +38,9 @@ from .const import (
     DOMAIN,
 )
 
+if TYPE_CHECKING:
+    from homeassistant.components.dhcp import DhcpServiceInfo
+
 _LOGGER = logging.getLogger(__name__)
 
 STEP_USER_DATA_SCHEMA = vol.Schema(
@@ -58,6 +61,11 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
     MINOR_VERSION = 1
 
+    def __init__(self) -> None:
+        """Initialize the config flow."""
+        self._discovered_host: str | None = None
+        self._discovered_port: int = DEFAULT_PORT
+
     @staticmethod
     @callback
     def async_get_options_flow(
@@ -65,6 +73,107 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> AdGuardHomeOptionsFlow:
         """Get the options flow for this handler."""
         return AdGuardHomeOptionsFlow(config_entry)
+
+    async def async_step_dhcp(self, discovery_info: DhcpServiceInfo) -> FlowResult:
+        """Handle DHCP discovery.
+
+        This is called when registered_devices is true and an already-configured
+        device's IP address changes on the network.
+        """
+        _LOGGER.debug("DHCP discovery received: %s", discovery_info)
+
+        # Store discovered host for later use
+        self._discovered_host = discovery_info.ip
+
+        # Check if we have any entries that match this IP or need updating
+        # For registered_devices, we update existing entries with new IP
+        for entry in self._async_current_entries():
+            if entry.data.get(CONF_HOST) == discovery_info.ip:
+                # Already configured with this IP
+                return self.async_abort(reason="already_configured")
+
+        # Set context to indicate this came from discovery
+        self.context["title_placeholders"] = {"host": discovery_info.ip}
+
+        # Show confirmation form to the user
+        return await self.async_step_discovery_confirm()
+
+    async def async_step_discovery_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Handle user confirmation of discovered device."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            # User has confirmed, try to connect
+            # Use user-provided host (user can edit), fallback to discovered host
+            host = user_input.get(CONF_HOST, self._discovered_host or "")
+            port = user_input.get(CONF_PORT, DEFAULT_PORT)
+
+            # Check if already configured
+            self._async_abort_entries_match({CONF_HOST: host})
+
+            session = async_get_clientsession(
+                self.hass, verify_ssl=user_input.get(CONF_VERIFY_SSL, True)
+            )
+
+            client = AdGuardHomeClient(
+                host=host,
+                port=port,
+                username=user_input.get(CONF_USERNAME),
+                password=user_input.get(CONF_PASSWORD),
+                use_ssl=user_input.get(CONF_SSL, False),
+                session=session,
+            )
+
+            try:
+                status = await client.get_status()
+            except AdGuardHomeAuthError:
+                errors["base"] = "invalid_auth"
+            except AdGuardHomeConnectionError:
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected exception during discovery confirmation")
+                errors["base"] = "unknown"
+            else:
+                # Set unique ID based on host and port
+                unique_id = f"{host}:{port}"
+                await self.async_set_unique_id(unique_id)
+                self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+
+                # Create the entry
+                title = f"AdGuard Home ({host})"
+                if status.version:
+                    title = f"AdGuard Home {status.version} ({host})"
+
+                return self.async_create_entry(
+                    title=title,
+                    data={
+                        CONF_HOST: host,
+                        CONF_PORT: port,
+                        CONF_USERNAME: user_input.get(CONF_USERNAME),
+                        CONF_PASSWORD: user_input.get(CONF_PASSWORD),
+                        CONF_SSL: user_input.get(CONF_SSL, False),
+                        CONF_VERIFY_SSL: user_input.get(CONF_VERIFY_SSL, True),
+                    },
+                )
+
+        # Show form for user to provide connection details
+        return self.async_show_form(
+            step_id="discovery_confirm",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOST, default=self._discovered_host): str,
+                    vol.Required(CONF_PORT, default=DEFAULT_PORT): int,
+                    vol.Optional(CONF_USERNAME): str,
+                    vol.Optional(CONF_PASSWORD): str,
+                    vol.Required(CONF_SSL, default=DEFAULT_SSL): bool,
+                    vol.Required(CONF_VERIFY_SSL, default=DEFAULT_VERIFY_SSL): bool,
+                }
+            ),
+            errors=errors,
+            description_placeholders={"host": self._discovered_host or ""},
+        )
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None

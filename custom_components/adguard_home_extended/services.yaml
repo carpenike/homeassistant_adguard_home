@@ -260,3 +260,24 @@ get_query_log:
       required: false
       selector:
         text:
+clear_query_log:
+  name: Clear Query Log
+  description: Clear all entries from the AdGuard Home query log. This action cannot be undone.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:
+
+reset_stats:
+  name: Reset Statistics
+  description: Reset all AdGuard Home statistics counters to zero. This action cannot be undone.
+  fields:
+    entry_id:
+      name: Entry ID
+      description: The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured.
+      required: false
+      selector:
+        text:

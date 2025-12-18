@@ -78,6 +78,42 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
         turn_on_fn=lambda client: client.set_dns_cache_enabled(True),
         turn_off_fn=lambda client: client.set_dns_cache_enabled(False),
     ),
+    AdGuardHomeSwitchEntityDescription(
+        key="dnssec",
+        translation_key="dnssec",
+        icon="mdi:shield-key",
+        is_on_fn=lambda data: data.dns_info.dnssec_enabled if data.dns_info else None,
+        turn_on_fn=lambda client: client.set_dnssec_enabled(True),
+        turn_off_fn=lambda client: client.set_dnssec_enabled(False),
+    ),
+    AdGuardHomeSwitchEntityDescription(
+        key="edns_client_subnet",
+        translation_key="edns_client_subnet",
+        icon="mdi:map-marker-radius",
+        is_on_fn=lambda data: data.dns_info.edns_cs_enabled if data.dns_info else None,
+        turn_on_fn=lambda client: client.set_edns_cs_enabled(True),
+        turn_off_fn=lambda client: client.set_edns_cs_enabled(False),
+    ),
+    AdGuardHomeSwitchEntityDescription(
+        key="query_logging",
+        translation_key="query_logging",
+        icon="mdi:text-box-search",
+        is_on_fn=lambda data: (
+            data.querylog_config.get("enabled") if data.querylog_config else None
+        ),
+        turn_on_fn=lambda client: client.set_querylog_config(enabled=True),
+        turn_off_fn=lambda client: client.set_querylog_config(enabled=False),
+    ),
+    AdGuardHomeSwitchEntityDescription(
+        key="statistics",
+        translation_key="statistics",
+        icon="mdi:chart-bar",
+        is_on_fn=lambda data: (
+            data.stats_config.get("enabled") if data.stats_config else None
+        ),
+        turn_on_fn=lambda client: client.set_stats_config(enabled=True),
+        turn_off_fn=lambda client: client.set_stats_config(enabled=False),
+    ),
 )
 
 
@@ -103,6 +139,12 @@ async def async_setup_entry(
     rewrite_manager = DnsRewriteEntityManager(coordinator, async_add_entities)
     await rewrite_manager.async_setup()
 
+    # Set up dynamic filter list entity manager
+    from .filter_lists import FilterListEntityManager
+
+    filter_manager = FilterListEntityManager(coordinator, async_add_entities)
+    await filter_manager.async_setup()
+
     # Store manager references for cleanup
     if DOMAIN not in hass.data:
         hass.data[DOMAIN] = {}
@@ -113,6 +155,10 @@ async def async_setup_entry(
     if "rewrite_managers" not in hass.data[DOMAIN]:
         hass.data[DOMAIN]["rewrite_managers"] = {}
     hass.data[DOMAIN]["rewrite_managers"][entry.entry_id] = rewrite_manager
+
+    if "filter_managers" not in hass.data[DOMAIN]:
+        hass.data[DOMAIN]["filter_managers"] = {}
+    hass.data[DOMAIN]["filter_managers"][entry.entry_id] = filter_manager
 
 
 class ClientEntityManager:

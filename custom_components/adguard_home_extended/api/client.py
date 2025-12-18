@@ -27,11 +27,13 @@ from ..const import (
     API_FILTERING_CONFIG,
     API_FILTERING_REFRESH,
     API_FILTERING_REMOVE_URL,
+    API_FILTERING_SET_URL,
     API_FILTERING_STATUS,
     API_PARENTAL_DISABLE,
     API_PARENTAL_ENABLE,
     API_PROTECTION,
     API_QUERYLOG,
+    API_QUERYLOG_CLEAR,
     API_QUERYLOG_CONFIG,
     API_QUERYLOG_CONFIG_UPDATE,
     API_REWRITE_ADD,
@@ -46,6 +48,7 @@ from ..const import (
     API_STATS,
     API_STATS_CONFIG,
     API_STATS_CONFIG_UPDATE,
+    API_STATS_RESET,
     API_STATUS,
 )
 from .models import (
@@ -259,6 +262,31 @@ class AdGuardHomeClient:
         await self._post(
             API_FILTERING_REMOVE_URL,
             {"url": url, "whitelist": whitelist},
+        )
+
+    async def set_filter_enabled(
+        self,
+        url: str,
+        enabled: bool,
+        whitelist: bool = False,
+    ) -> None:
+        """Enable or disable a filter list.
+
+        Args:
+            url: The URL of the filter list to modify.
+            enabled: Whether the filter should be enabled.
+            whitelist: Whether this is a whitelist filter (default False).
+        """
+        await self._post(
+            API_FILTERING_SET_URL,
+            {
+                "url": url,
+                "data": {
+                    "enabled": enabled,
+                    "url": url,
+                },
+                "whitelist": whitelist,
+            },
         )
 
     async def refresh_filters(self, force: bool = False) -> None:
@@ -524,6 +552,56 @@ class AdGuardHomeClient:
         """
         await self.set_dns_config({"cache_enabled": enabled})
 
+    async def set_dnssec_enabled(self, enabled: bool) -> None:
+        """Enable or disable DNSSEC validation.
+
+        DNSSEC adds cryptographic signatures to DNS responses to verify
+        their authenticity. When enabled, AdGuard Home validates these
+        signatures and rejects responses that fail validation.
+
+        Args:
+            enabled: True to enable DNSSEC validation, False to disable.
+        """
+        await self.set_dns_config({"dnssec_enabled": enabled})
+
+    async def set_edns_cs_enabled(self, enabled: bool) -> None:
+        """Enable or disable EDNS Client Subnet.
+
+        EDNS Client Subnet (ECS) sends part of your IP address to DNS servers
+        to get geographically appropriate responses. This can improve CDN
+        performance but reduces privacy.
+
+        Args:
+            enabled: True to enable EDNS Client Subnet, False to disable.
+        """
+        await self.set_dns_config({"edns_cs_enabled": enabled})
+
+    async def set_rate_limit(self, rate: int) -> None:
+        """Set the DNS query rate limit.
+
+        Limits the number of DNS requests per second from a single client.
+        Set to 0 to disable rate limiting.
+
+        Args:
+            rate: Maximum requests per second per client (0 = unlimited).
+        """
+        await self.set_dns_config({"ratelimit": rate})
+
+    async def set_blocking_mode(self, mode: str) -> None:
+        """Set the DNS blocking mode.
+
+        Determines how blocked domains are handled.
+
+        Args:
+            mode: Blocking mode, one of:
+                - "default": Return 0.0.0.0 for A and :: for AAAA
+                - "refused": Return REFUSED DNS response
+                - "nxdomain": Return NXDOMAIN DNS response
+                - "null_ip": Return 0.0.0.0 for both A and AAAA
+                - "custom_ip": Return custom IP (requires blocking_ipv4/ipv6)
+        """
+        await self.set_dns_config({"blocking_mode": mode})
+
     # Connection test
     async def test_connection(self) -> bool:
         """Test the connection to AdGuard Home."""
@@ -569,6 +647,13 @@ class AdGuardHomeClient:
         if config:
             await self._put(API_STATS_CONFIG_UPDATE, config)
 
+    async def reset_stats(self) -> None:
+        """Reset all statistics.
+
+        Clears all statistics data and resets counters to zero.
+        """
+        await self._post(API_STATS_RESET, {})
+
     # Query log configuration (v0.107.30+)
     async def get_querylog_config(self) -> dict[str, Any]:
         """Get query log configuration.
@@ -608,6 +693,13 @@ class AdGuardHomeClient:
             config["ignored"] = ignored
         if config:
             await self._put(API_QUERYLOG_CONFIG_UPDATE, config)
+
+    async def clear_query_log(self) -> None:
+        """Clear all query log entries.
+
+        Removes all entries from the query log.
+        """
+        await self._post(API_QUERYLOG_CLEAR, {})
 
     # Blocked services with schedule (v0.107.56+)
     async def get_blocked_services_v2(self) -> dict[str, Any]:

@@ -33,6 +33,7 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
+from .version import AdGuardHomeVersion, parse_version
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -56,6 +57,14 @@ class AdGuardHomeData:
         self.dhcp: DhcpStatus | None = None
         self.rewrites: list[DnsRewrite] = []
         self.query_log: list[dict[str, Any]] = []
+        self.stats_config: dict[str, Any] | None = None
+        self.querylog_config: dict[str, Any] | None = None
+
+    @property
+    def version(self) -> AdGuardHomeVersion:
+        """Get parsed version from status."""
+        version_str = self.status.version if self.status else ""
+        return parse_version(version_str)
 
 
 class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
@@ -156,6 +165,18 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
                 data.query_log = await self.client.get_query_log(limit=query_log_limit)
             except AdGuardHomeConnectionError as err:
                 _LOGGER.debug("Failed to fetch query log: %s", err)
+
+            # Fetch stats config (v0.107.30+)
+            try:
+                data.stats_config = await self.client.get_stats_config()
+            except AdGuardHomeConnectionError as err:
+                _LOGGER.debug("Failed to fetch stats config: %s", err)
+
+            # Fetch query log config (v0.107.30+)
+            try:
+                data.querylog_config = await self.client.get_querylog_config()
+            except AdGuardHomeConnectionError as err:
+                _LOGGER.debug("Failed to fetch query log config: %s", err)
 
         except AdGuardHomeAuthError as err:
             raise ConfigEntryAuthFailed(

@@ -4,5 +4,6 @@
   "render_readme": true,
   "content_in_root": false,
   "filename": "adguard_home_extended",
-  "country": ["ALL"]
+  "country": ["ALL"],
+  "zip_release": true
 }

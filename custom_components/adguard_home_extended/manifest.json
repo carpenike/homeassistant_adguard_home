@@ -4,6 +4,11 @@
   "codeowners": ["@carpenike"],
   "config_flow": true,
   "dependencies": [],
+  "dhcp": [
+    {
+      "registered_devices": true
+    }
+  ],
   "documentation": "https://github.com/carpenike/homeassistant_adguard_home",
   "homeassistant": "2025.1.0",
   "iot_class": "local_polling",

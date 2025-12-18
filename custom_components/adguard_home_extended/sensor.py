@@ -216,6 +216,63 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
             else {}
         ),
     ),
+    # DNS Configuration sensors
+    AdGuardHomeSensorEntityDescription(
+        key="upstream_dns_servers",
+        translation_key="upstream_dns_servers",
+        icon="mdi:dns",
+        native_unit_of_measurement="servers",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: len(data.dns_info.upstream_dns) if data.dns_info else 0,
+        attributes_fn=lambda data, top_limit, list_limit: (
+            {"upstream_servers": data.dns_info.upstream_dns[:list_limit]}
+            if data.dns_info
+            else {}
+        ),
+    ),
+    AdGuardHomeSensorEntityDescription(
+        key="bootstrap_dns_servers",
+        translation_key="bootstrap_dns_servers",
+        icon="mdi:dns-outline",
+        native_unit_of_measurement="servers",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: (
+            len(data.dns_info.bootstrap_dns) if data.dns_info else 0
+        ),
+        attributes_fn=lambda data, top_limit, list_limit: (
+            {"bootstrap_servers": data.dns_info.bootstrap_dns[:list_limit]}
+            if data.dns_info
+            else {}
+        ),
+    ),
+    AdGuardHomeSensorEntityDescription(
+        key="dns_cache_size",
+        translation_key="dns_cache_size",
+        icon="mdi:database",
+        native_unit_of_measurement="bytes",
+        device_class=SensorDeviceClass.DATA_SIZE,
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.dns_info.cache_size if data.dns_info else None,
+    ),
+    AdGuardHomeSensorEntityDescription(
+        key="dns_rate_limit",
+        translation_key="dns_rate_limit",
+        icon="mdi:speedometer",
+        native_unit_of_measurement="req/s",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.dns_info.rate_limit if data.dns_info else None,
+    ),
+    AdGuardHomeSensorEntityDescription(
+        key="dns_blocking_mode",
+        translation_key="dns_blocking_mode",
+        icon="mdi:shield-alert",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: data.dns_info.blocking_mode if data.dns_info else None,
+    ),
 )
 
 

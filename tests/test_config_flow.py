@@ -1,6 +1,7 @@
 """Tests for the AdGuard Home Extended config flow."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,6 +23,15 @@ from custom_components.adguard_home_extended.const import (
     DEFAULT_QUERY_LOG_LIMIT,
     DEFAULT_SCAN_INTERVAL,
 )
+
+
+@dataclass
+class MockDhcpServiceInfo:
+    """Mock DhcpServiceInfo for testing."""
+
+    ip: str
+    hostname: str
+    macaddress: str
 
 
 class TestConfigFlow:
@@ -543,3 +553,287 @@ class TestReauthFlow:
 
 # Note: already_configured and reauth tests require full integration setup
 # These should be tested via integration tests with a real Home Assistant instance
+
+
+class TestDhcpDiscoveryFlow:
+    """Tests for DHCP discovery flow."""
+
+    @pytest.mark.asyncio
+    async def test_dhcp_discovery_initiates_confirm_flow(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Test that DHCP discovery shows the confirmation form."""
+        flow = AdGuardHomeConfigFlow()
+        flow.hass = hass
+        flow.context = {"source": "dhcp"}
+
+        discovery_info = MockDhcpServiceInfo(
+            ip="192.168.1.100",
+            hostname="adguard",
+            macaddress="aa:bb:cc:dd:ee:ff",
+        )
+
+        result = await flow.async_step_dhcp(discovery_info)
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "discovery_confirm"
+        assert flow._discovered_host == "192.168.1.100"
+
+    @pytest.mark.asyncio
+    async def test_dhcp_discovery_already_configured(self, hass: HomeAssistant) -> None:
+        """Test that DHCP discovery aborts if already configured."""
+        flow = AdGuardHomeConfigFlow()
+        flow.hass = hass
+        flow.context = {"source": "dhcp"}
+
+        # Create a mock existing entry with same IP
+        mock_entry = MagicMock()
+        mock_entry.data = {"host": "192.168.1.100"}
+
+        # Mock _async_current_entries to return the existing entry
+        flow._async_current_entries = MagicMock(return_value=[mock_entry])
+
+        discovery_info = MockDhcpServiceInfo(
+            ip="192.168.1.100",
+            hostname="adguard",
+            macaddress="aa:bb:cc:dd:ee:ff",
+        )
+
+        result = await flow.async_step_dhcp(discovery_info)
+
+        assert result["type"] == FlowResultType.ABORT
+        assert result["reason"] == "already_configured"
+
+    @pytest.mark.asyncio
+    async def test_discovery_confirm_shows_form(self, hass: HomeAssistant) -> None:
+        """Test discovery confirmation shows form with discovered host."""
+        flow = AdGuardHomeConfigFlow()
+        flow.hass = hass
+        flow.context = {"source": "dhcp"}
+        flow._discovered_host = "192.168.1.100"
+
+        result = await flow.async_step_discovery_confirm()
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "discovery_confirm"
+        # Check the form has the discovered host pre-filled
+        schema = result["data_schema"].schema
+        host_key = next(k for k in schema if k.schema == "host")
+        # Default is a callable in voluptuous
+        assert host_key.default() == "192.168.1.100"
+
+    @pytest.mark.asyncio
+    async def test_discovery_confirm_success(self, hass: HomeAssistant) -> None:
+        """Test successful discovery confirmation creates entry."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_status = AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",
+            )
+            mock_client.get_status = AsyncMock(return_value=mock_status)
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "dhcp"}
+            flow._discovered_host = "192.168.1.100"
+
+            result = await flow.async_step_discovery_confirm(
+                user_input={
+                    "host": "192.168.1.100",
+                    "port": 3000,
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            assert "192.168.1.100" in result["title"]
+            assert result["data"]["host"] == "192.168.1.100"
+            assert result["data"]["port"] == 3000
+
+    @pytest.mark.asyncio
+    async def test_discovery_confirm_connection_error(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Test discovery confirmation handles connection error."""
+        from custom_components.adguard_home_extended.api.client import (
+            AdGuardHomeConnectionError,
+        )
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(
+                side_effect=AdGuardHomeConnectionError("Connection failed")
+            )
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "dhcp"}
+            flow._discovered_host = "192.168.1.100"
+
+            result = await flow.async_step_discovery_confirm(
+                user_input={
+                    "host": "192.168.1.100",
+                    "port": 3000,
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "cannot_connect"}
+
+    @pytest.mark.asyncio
+    async def test_discovery_confirm_auth_error(self, hass: HomeAssistant) -> None:
+        """Test discovery confirmation handles authentication error."""
+        from custom_components.adguard_home_extended.api.client import (
+            AdGuardHomeAuthError,
+        )
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(
+                side_effect=AdGuardHomeAuthError("Invalid credentials")
+            )
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "dhcp"}
+            flow._discovered_host = "192.168.1.100"
+
+            result = await flow.async_step_discovery_confirm(
+                user_input={
+                    "host": "192.168.1.100",
+                    "port": 3000,
+                    "username": "admin",
+                    "password": "wrong",
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "invalid_auth"}
+
+    @pytest.mark.asyncio
+    async def test_discovery_confirm_unknown_error(self, hass: HomeAssistant) -> None:
+        """Test discovery confirmation handles unknown error."""
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(side_effect=RuntimeError("Unexpected"))
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "dhcp"}
+            flow._discovered_host = "192.168.1.100"
+
+            result = await flow.async_step_discovery_confirm(
+                user_input={
+                    "host": "192.168.1.100",
+                    "port": 3000,
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "unknown"}
+
+    @pytest.mark.asyncio
+    async def test_discovery_sets_unique_id(self, hass: HomeAssistant) -> None:
+        """Test discovery confirmation sets unique ID."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_status = AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",
+            )
+            mock_client.get_status = AsyncMock(return_value=mock_status)
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "dhcp"}
+            flow._discovered_host = "192.168.1.100"
+
+            result = await flow.async_step_discovery_confirm(
+                user_input={
+                    "host": "192.168.1.100",
+                    "port": 3000,
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            assert flow.unique_id == "192.168.1.100:3000"
+
+    @pytest.mark.asyncio
+    async def test_discovery_with_different_host_in_form(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Test discovery where user changes host in form."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_status = AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",
+            )
+            mock_client.get_status = AsyncMock(return_value=mock_status)
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "dhcp"}
+            flow._discovered_host = "192.168.1.100"
+
+            # User changes host to a different IP
+            result = await flow.async_step_discovery_confirm(
+                user_input={
+                    "host": "192.168.1.200",
+                    "port": 80,
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            assert result["data"]["host"] == "192.168.1.200"
+            assert result["data"]["port"] == 80
+            assert flow.unique_id == "192.168.1.200:80"

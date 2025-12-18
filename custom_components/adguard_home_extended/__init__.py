@@ -43,6 +43,8 @@ SERVICE_ADD_DNS_REWRITE = "add_dns_rewrite"
 SERVICE_REMOVE_DNS_REWRITE = "remove_dns_rewrite"
 SERVICE_CHECK_HOST = "check_host"
 SERVICE_GET_QUERY_LOG = "get_query_log"
+SERVICE_CLEAR_QUERY_LOG = "clear_query_log"
+SERVICE_RESET_STATS = "reset_stats"
 
 ATTR_SERVICES = "services"
 ATTR_SCHEDULE = "schedule"
@@ -300,6 +302,24 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
             "response_status": response_status,
         }
 
+    async def handle_clear_query_log(call: ServiceCall) -> None:
+        """Handle the clear_query_log service call.
+
+        Clears all entries from the query log.
+        """
+        coordinator = _get_coordinator(hass, call.data.get(ATTR_ENTRY_ID))
+        await coordinator.client.clear_query_log()
+        await coordinator.async_request_refresh()
+
+    async def handle_reset_stats(call: ServiceCall) -> None:
+        """Handle the reset_stats service call.
+
+        Resets all statistics counters to zero.
+        """
+        coordinator = _get_coordinator(hass, call.data.get(ATTR_ENTRY_ID))
+        await coordinator.client.reset_stats()
+        await coordinator.async_request_refresh()
+
     # Schema with optional entry_id for multi-instance support
     entry_id_schema = {vol.Optional(ATTR_ENTRY_ID): cv.string}
 
@@ -423,6 +443,20 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         supports_response=True,
     )
 
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_CLEAR_QUERY_LOG,
+        handle_clear_query_log,
+        schema=vol.Schema({**entry_id_schema}),
+    )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_RESET_STATS,
+        handle_reset_stats,
+        schema=vol.Schema({**entry_id_schema}),
+    )
+
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
@@ -477,6 +511,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 SERVICE_REMOVE_DNS_REWRITE,
                 SERVICE_CHECK_HOST,
                 SERVICE_GET_QUERY_LOG,
+                SERVICE_CLEAR_QUERY_LOG,
+                SERVICE_RESET_STATS,
             ]:
                 hass.services.async_remove(DOMAIN, service)
 

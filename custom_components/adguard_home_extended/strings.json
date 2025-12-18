@@ -20,6 +20,18 @@
           "username": "Username",
           "password": "Password"
         }
+      },
+      "discovery_confirm": {
+        "title": "Discovered AdGuard Home",
+        "description": "An AdGuard Home instance was discovered at {host}. Enter the connection details to set it up.",
+        "data": {
+          "host": "Host",
+          "port": "Port",
+          "username": "Username",
+          "password": "Password",
+          "ssl": "Use SSL",
+          "verify_ssl": "Verify SSL certificate"
+        }
       }
     },
     "error": {
@@ -89,6 +101,21 @@
       },
       "recent_queries": {
         "name": "Recent Queries"
+      },
+      "upstream_dns_servers": {
+        "name": "Upstream DNS Servers"
+      },
+      "bootstrap_dns_servers": {
+        "name": "Bootstrap DNS Servers"
+      },
+      "dns_cache_size": {
+        "name": "DNS Cache Size"
+      },
+      "dns_rate_limit": {
+        "name": "DNS Rate Limit"
+      },
+      "dns_blocking_mode": {
+        "name": "DNS Blocking Mode"
       }
     },
     "switch": {
@@ -109,6 +136,18 @@
       },
       "dns_cache": {
         "name": "DNS Cache"
+      },
+      "dnssec": {
+        "name": "DNSSEC"
+      },
+      "edns_client_subnet": {
+        "name": "EDNS Client Subnet"
+      },
+      "query_logging": {
+        "name": "Query Logging"
+      },
+      "statistics": {
+        "name": "Statistics Collection"
       },
       "blocked_service": {
         "name": "Block {service_name}"

@@ -44,6 +44,40 @@ class TestAdGuardHomeData:
         assert data.clients == []
         assert data.dhcp is None
 
+    def test_version_property_with_status(self) -> None:
+        """Test version property returns parsed version from status."""
+        data = AdGuardHomeData()
+        data.status = AdGuardHomeStatus(
+            protection_enabled=True,
+            running=True,
+            version="0.107.65",
+        )
+
+        version = data.version
+        assert version.parsed == (0, 107, 65)
+        assert version.supports_new_blocked_services is True
+        assert version.supports_querylog_response_status is False
+
+    def test_version_property_without_status(self) -> None:
+        """Test version property returns empty version when no status."""
+        data = AdGuardHomeData()
+
+        version = data.version
+        assert version.parsed == (0, 0, 0)
+        assert version.supports_stats_config is False
+
+    def test_version_property_with_empty_version(self) -> None:
+        """Test version property handles empty version string."""
+        data = AdGuardHomeData()
+        data.status = AdGuardHomeStatus(
+            protection_enabled=True,
+            running=True,
+            version="",
+        )
+
+        version = data.version
+        assert version.parsed == (0, 0, 0)
+
 
 class TestAdGuardHomeDataUpdateCoordinator:
     """Tests for AdGuardHomeDataUpdateCoordinator."""

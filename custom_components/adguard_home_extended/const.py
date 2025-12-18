@@ -48,6 +48,7 @@ API_STATS: Final = "/control/stats"
 # v0.107.30+: Stats configuration endpoints
 API_STATS_CONFIG: Final = "/control/stats/config"
 API_STATS_CONFIG_UPDATE: Final = "/control/stats/config/update"
+API_STATS_RESET: Final = "/control/stats_reset"
 
 # -----------------------------------------------------------------------------
 # Query Log APIs (v0.100+)
@@ -59,6 +60,7 @@ API_QUERYLOG: Final = "/control/querylog"
 # v0.107.30+: Query log configuration endpoints
 API_QUERYLOG_CONFIG: Final = "/control/querylog/config"
 API_QUERYLOG_CONFIG_UPDATE: Final = "/control/querylog/config/update"
+API_QUERYLOG_CLEAR: Final = "/control/querylog_clear"
 
 # -----------------------------------------------------------------------------
 # Safe Browsing APIs (v0.100+)
@@ -88,6 +90,7 @@ API_SAFESEARCH_SETTINGS: Final = "/control/safesearch/settings"
 # -----------------------------------------------------------------------------
 API_FILTERING_ADD_URL: Final = "/control/filtering/add_url"
 API_FILTERING_REMOVE_URL: Final = "/control/filtering/remove_url"
+API_FILTERING_SET_URL: Final = "/control/filtering/set_url"
 API_FILTERING_REFRESH: Final = "/control/filtering/refresh"
 API_FILTERING_STATUS: Final = "/control/filtering/status"
 API_FILTERING_CONFIG: Final = "/control/filtering/config"

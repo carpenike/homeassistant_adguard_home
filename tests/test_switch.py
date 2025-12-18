@@ -313,6 +313,110 @@ class TestDnsCacheSwitch:
         mock_client.set_dns_cache_enabled.assert_called_with(False)
 
 
+class TestDnssecSwitch:
+    """Tests for DNSSEC switch."""
+
+    def test_dnssec_switch_is_on(self) -> None:
+        """Test DNSSEC switch is_on function when enabled."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.dns_info = DnsInfo(dnssec_enabled=True)
+
+        dnssec_desc = next(d for d in SWITCH_TYPES if d.key == "dnssec")
+        is_on = dnssec_desc.is_on_fn(data)
+        assert is_on is True
+
+    def test_dnssec_switch_is_off(self) -> None:
+        """Test DNSSEC switch is_on function when disabled."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.dns_info = DnsInfo(dnssec_enabled=False)
+
+        dnssec_desc = next(d for d in SWITCH_TYPES if d.key == "dnssec")
+        is_on = dnssec_desc.is_on_fn(data)
+        assert is_on is False
+
+    def test_dnssec_switch_none_dns_info(self) -> None:
+        """Test DNSSEC switch with None dns_info."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()  # dns_info is None
+
+        dnssec_desc = next(d for d in SWITCH_TYPES if d.key == "dnssec")
+        is_on = dnssec_desc.is_on_fn(data)
+        assert is_on is None
+
+    @pytest.mark.asyncio
+    async def test_dnssec_toggle(self) -> None:
+        """Test DNSSEC switch toggle functions."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_client = AsyncMock()
+        mock_client.set_dnssec_enabled = AsyncMock()
+
+        dnssec_desc = next(d for d in SWITCH_TYPES if d.key == "dnssec")
+
+        await dnssec_desc.turn_on_fn(mock_client)
+        mock_client.set_dnssec_enabled.assert_called_with(True)
+
+        await dnssec_desc.turn_off_fn(mock_client)
+        mock_client.set_dnssec_enabled.assert_called_with(False)
+
+
+class TestEdnsClientSubnetSwitch:
+    """Tests for EDNS Client Subnet switch."""
+
+    def test_edns_cs_switch_is_on(self) -> None:
+        """Test EDNS CS switch is_on function when enabled."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.dns_info = DnsInfo(edns_cs_enabled=True)
+
+        edns_desc = next(d for d in SWITCH_TYPES if d.key == "edns_client_subnet")
+        is_on = edns_desc.is_on_fn(data)
+        assert is_on is True
+
+    def test_edns_cs_switch_is_off(self) -> None:
+        """Test EDNS CS switch is_on function when disabled."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.dns_info = DnsInfo(edns_cs_enabled=False)
+
+        edns_desc = next(d for d in SWITCH_TYPES if d.key == "edns_client_subnet")
+        is_on = edns_desc.is_on_fn(data)
+        assert is_on is False
+
+    def test_edns_cs_switch_none_dns_info(self) -> None:
+        """Test EDNS CS switch with None dns_info."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()  # dns_info is None
+
+        edns_desc = next(d for d in SWITCH_TYPES if d.key == "edns_client_subnet")
+        is_on = edns_desc.is_on_fn(data)
+        assert is_on is None
+
+    @pytest.mark.asyncio
+    async def test_edns_cs_toggle(self) -> None:
+        """Test EDNS CS switch toggle functions."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_client = AsyncMock()
+        mock_client.set_edns_cs_enabled = AsyncMock()
+
+        edns_desc = next(d for d in SWITCH_TYPES if d.key == "edns_client_subnet")
+
+        await edns_desc.turn_on_fn(mock_client)
+        mock_client.set_edns_cs_enabled.assert_called_with(True)
+
+        await edns_desc.turn_off_fn(mock_client)
+        mock_client.set_edns_cs_enabled.assert_called_with(False)
+
+
 class TestDnsRewriteSwitch:
     """Tests for DNS rewrite switch entities."""
 
@@ -514,4 +618,125 @@ class TestDnsRewriteSwitch:
         coordinator.client.set_rewrite_enabled.assert_called_once_with(
             "ads.example.com", "0.0.0.0", False
         )
-        coordinator.async_request_refresh.assert_called_once()
+
+
+class TestQueryLoggingAndStatsSwitch:
+    """Tests for query logging and statistics switches."""
+
+    def test_query_logging_is_on_when_enabled(self) -> None:
+        """Test query logging switch is_on_fn when enabled."""
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.querylog_config = {"enabled": True}
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "query_logging")
+        assert desc.is_on_fn(data) is True
+
+    def test_query_logging_is_off_when_disabled(self) -> None:
+        """Test query logging switch is_on_fn when disabled."""
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.querylog_config = {"enabled": False}
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "query_logging")
+        assert desc.is_on_fn(data) is False
+
+    def test_query_logging_is_none_when_no_config(self) -> None:
+        """Test query logging switch is_on_fn when config unavailable."""
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.querylog_config = None
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "query_logging")
+        assert desc.is_on_fn(data) is None
+
+    @pytest.mark.asyncio
+    async def test_query_logging_turn_on(self) -> None:
+        """Test query logging switch turn_on function."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_client = AsyncMock()
+        mock_client.set_querylog_config = AsyncMock()
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "query_logging")
+        await desc.turn_on_fn(mock_client)
+
+        mock_client.set_querylog_config.assert_called_once_with(enabled=True)
+
+    @pytest.mark.asyncio
+    async def test_query_logging_turn_off(self) -> None:
+        """Test query logging switch turn_off function."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_client = AsyncMock()
+        mock_client.set_querylog_config = AsyncMock()
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "query_logging")
+        await desc.turn_off_fn(mock_client)
+
+        mock_client.set_querylog_config.assert_called_once_with(enabled=False)
+
+    def test_statistics_is_on_when_enabled(self) -> None:
+        """Test statistics switch is_on_fn when enabled."""
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.stats_config = {"enabled": True}
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        assert desc.is_on_fn(data) is True
+
+    def test_statistics_is_off_when_disabled(self) -> None:
+        """Test statistics switch is_on_fn when disabled."""
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.stats_config = {"enabled": False}
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        assert desc.is_on_fn(data) is False
+
+    def test_statistics_is_none_when_no_config(self) -> None:
+        """Test statistics switch is_on_fn when config unavailable."""
+        from custom_components.adguard_home_extended.coordinator import AdGuardHomeData
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        data = AdGuardHomeData()
+        data.stats_config = None
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        assert desc.is_on_fn(data) is None
+
+    @pytest.mark.asyncio
+    async def test_statistics_turn_on(self) -> None:
+        """Test statistics switch turn_on function."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_client = AsyncMock()
+        mock_client.set_stats_config = AsyncMock()
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        await desc.turn_on_fn(mock_client)
+
+        mock_client.set_stats_config.assert_called_once_with(enabled=True)
+
+    @pytest.mark.asyncio
+    async def test_statistics_turn_off(self) -> None:
+        """Test statistics switch turn_off function."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_client = AsyncMock()
+        mock_client.set_stats_config = AsyncMock()
+
+        desc = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        await desc.turn_off_fn(mock_client)
+
+        mock_client.set_stats_config.assert_called_once_with(enabled=False)

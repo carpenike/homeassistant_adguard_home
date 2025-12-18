@@ -636,6 +636,130 @@ class TestAdGuardHomeClient:
         assert "/control/dns_config" in call_args[0][1]
 
     @pytest.mark.asyncio
+    async def test_set_dnssec_enabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test enabling/disabling DNSSEC."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_dnssec_enabled(True)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/dns_config" in call_args[0][1]
+        assert call_args[1]["json"] == {"dnssec_enabled": True}
+
+    @pytest.mark.asyncio
+    async def test_set_dnssec_disabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test disabling DNSSEC."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_dnssec_enabled(False)
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]["json"] == {"dnssec_enabled": False}
+
+    @pytest.mark.asyncio
+    async def test_set_edns_cs_enabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test enabling EDNS Client Subnet."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_edns_cs_enabled(True)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/dns_config" in call_args[0][1]
+        assert call_args[1]["json"] == {"edns_cs_enabled": True}
+
+    @pytest.mark.asyncio
+    async def test_set_edns_cs_disabled(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test disabling EDNS Client Subnet."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_edns_cs_enabled(False)
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]["json"] == {"edns_cs_enabled": False}
+
+    @pytest.mark.asyncio
+    async def test_set_rate_limit(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting DNS rate limit."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_rate_limit(50)
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/dns_config" in call_args[0][1]
+        assert call_args[1]["json"] == {"ratelimit": 50}
+
+    @pytest.mark.asyncio
+    async def test_set_rate_limit_zero(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test disabling DNS rate limit by setting to 0."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_rate_limit(0)
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]["json"] == {"ratelimit": 0}
+
+    @pytest.mark.asyncio
+    async def test_set_blocking_mode_refused(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting blocking mode to refused."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_blocking_mode("refused")
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/dns_config" in call_args[0][1]
+        assert call_args[1]["json"] == {"blocking_mode": "refused"}
+
+    @pytest.mark.asyncio
+    async def test_set_blocking_mode_nxdomain(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test setting blocking mode to nxdomain."""
+        mock_response = create_mock_response(json_data=None)
+        mock_response.content_length = 0
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_blocking_mode("nxdomain")
+
+        call_args = mock_session.request.call_args
+        assert call_args[1]["json"] == {"blocking_mode": "nxdomain"}
+
+    @pytest.mark.asyncio
     async def test_update_rewrite(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:
@@ -1038,3 +1162,33 @@ class TestAdGuardHomeClient:
         result = await client.search_client("192.168.1.200")
 
         assert result is None
+
+    @pytest.mark.asyncio
+    async def test_clear_query_log(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test clearing query log."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.clear_query_log()
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/querylog_clear" in call_args[0][1]
+
+    @pytest.mark.asyncio
+    async def test_reset_stats(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test resetting statistics."""
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.reset_stats()
+
+        mock_session.request.assert_called_once()
+        call_args = mock_session.request.call_args
+        assert call_args[0][0] == "POST"
+        assert "/control/stats_reset" in call_args[0][1]
