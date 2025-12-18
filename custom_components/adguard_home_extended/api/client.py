@@ -44,6 +44,7 @@ from ..const import (
     API_SAFEBROWSING_DISABLE,
     API_SAFEBROWSING_ENABLE,
     API_SAFESEARCH_SETTINGS,
+    API_SAFESEARCH_STATUS,
     API_STATS,
     API_STATS_CONFIG,
     API_STATS_CONFIG_UPDATE,
@@ -276,8 +277,9 @@ class AdGuardHomeClient:
         """Get SafeSearch settings with per-engine control.
 
         Returns detailed SafeSearch configuration including per-engine settings.
+        Uses /control/safesearch/status for GET (not /settings which is PUT only).
         """
-        data = await self._get(API_SAFESEARCH_SETTINGS)
+        data = await self._get(API_SAFESEARCH_STATUS)
         return SafeSearchSettings.from_dict(data or {})
 
     async def set_safesearch_settings(self, settings: SafeSearchSettings) -> None:

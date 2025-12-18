@@ -83,6 +83,7 @@ API_PARENTAL_DISABLE: Final = "/control/parental/disable"
 # -----------------------------------------------------------------------------
 API_SAFESEARCH_ENABLE: Final = "/control/safesearch/enable"
 API_SAFESEARCH_DISABLE: Final = "/control/safesearch/disable"
+API_SAFESEARCH_STATUS: Final = "/control/safesearch/status"
 API_SAFESEARCH_SETTINGS: Final = "/control/safesearch/settings"
 
 # -----------------------------------------------------------------------------

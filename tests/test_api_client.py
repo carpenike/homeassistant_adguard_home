@@ -1014,6 +1014,10 @@ class TestAdGuardHomeClient:
         assert settings.duckduckgo is False
         assert settings.yandex is False
 
+        # Verify correct endpoint is used (status for GET, not settings)
+        call_args = mock_session.request.call_args
+        assert "/control/safesearch/status" in call_args[0][1]
+
     @pytest.mark.asyncio
     async def test_set_safesearch_settings(
         self, client: AdGuardHomeClient, mock_session: MagicMock
@@ -1082,10 +1086,10 @@ class TestAdGuardHomeClient:
         # Should have made 2 calls: GET then PUT
         assert mock_session.request.call_count == 2
 
-        # First call should be GET for current settings
+        # First call should be GET for current settings (from /status endpoint)
         first_call = mock_session.request.call_args_list[0]
         assert first_call[0][0] == "GET"
-        assert "/control/safesearch/settings" in first_call[0][1]
+        assert "/control/safesearch/status" in first_call[0][1]
 
         # Second call should be PUT with enabled=True and preserved engine settings
         second_call = mock_session.request.call_args_list[1]

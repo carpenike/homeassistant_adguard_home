@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2025-12-18
+
+### Fixed
+
+- **405 Method Not Allowed on Safe Search toggle** - Use correct endpoint `/control/safesearch/status` for GET requests (not `/settings` which only supports PUT). The global Safe Search toggle now works properly
+
 ## [0.2.4] - 2025-12-18
 
 ### Fixed
