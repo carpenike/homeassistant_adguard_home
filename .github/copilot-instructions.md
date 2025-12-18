@@ -4,7 +4,7 @@
 This is a custom Home Assistant integration for HACS (Home Assistant Community Store) that provides extended functionality for AdGuard Home instances beyond the official core integration. The integration communicates with AdGuard Home's REST API to provide granular control over DNS filtering, client management, and network protection features.
 
 ## Tech Stack
-- **Language**: Python 3.11+
+- **Language**: Python 3.12+
 - **Framework**: Home Assistant Custom Component
 - **Distribution**: HACS (Home Assistant Community Store)
 - **API Communication**: aiohttp (async HTTP client)
@@ -14,14 +14,19 @@ This is a custom Home Assistant integration for HACS (Home Assistant Community S
 ```
 custom_components/
 └── adguard_home_extended/
-    ├── __init__.py           # Integration entry point, setup/unload
+    ├── __init__.py           # Integration entry point, setup/unload, services
     ├── manifest.json         # Integration metadata (HACS/HA required)
-    ├── config_flow.py        # UI configuration wizard
+    ├── config_flow.py        # UI configuration wizard + OptionsFlow
     ├── coordinator.py        # DataUpdateCoordinator for API polling
     ├── const.py              # Constants, domain, default values
-    ├── sensor.py             # Sensor entities (stats, query counts)
-    ├── switch.py             # Switch entities (protection toggles)
+    ├── version.py            # Version detection utilities
+    ├── sensor.py             # Sensor entities (stats, query counts, DHCP)
+    ├── switch.py             # Switch entities (protection, DNS config toggles)
     ├── binary_sensor.py      # Binary sensors (status indicators)
+    ├── blocked_services.py   # Per-service blocking switches
+    ├── client_entities.py    # Per-client filtering switches
+    ├── filter_lists.py       # Filter list enable/disable switches
+    ├── diagnostics.py        # Diagnostics data for troubleshooting
     ├── services.yaml         # Service definitions
     ├── strings.json          # Translations (en)
     ├── translations/         # Localization files
@@ -45,11 +50,18 @@ tests/
 
 ### Home Assistant Patterns
 - Use `DataUpdateCoordinator` for all polling operations
+- Pass `config_entry` parameter to coordinator constructor
+- Use `entry.runtime_data` pattern (not `hass.data[DOMAIN]`)
 - Entities must have stable `unique_id` based on device identifiers
 - Use `_attr_*` class attributes for entity properties
-- Implement proper `device_info` for device registry
+- Implement proper `device_info` returning `DeviceInfo` dataclass
 - Use `ConfigEntry` for configuration storage
 - Handle `ConfigEntryAuthFailed` for reauthentication flows
+- Use `FlowResult` type hint (from `data_entry_flow`) for config flows
+- Use `OptionsFlow` base class (not deprecated `OptionsFlowWithConfigEntry`)
+- Register services in `async_setup_entry`, unregister in `async_unload_entry`
+- Use `EntityCategory.DIAGNOSTIC` for diagnostic sensors
+- Support `async_migrate_entry` for config version changes
 
 ### Entity Naming
 - Use `_attr_has_entity_name = True` for proper name composition
@@ -82,15 +94,27 @@ tests/
 | `/control/parental/disable` | POST | Toggle parental control |
 | `/control/safesearch/enable` | POST | Toggle safe search |
 | `/control/safesearch/disable` | POST | Toggle safe search |
+| `/control/safesearch/settings` | GET/PUT | Per-engine safe search config |
 | `/control/filtering/add_url` | POST | Add filter list |
 | `/control/filtering/remove_url` | POST | Remove filter list |
+| `/control/filtering/set_url` | POST | Update filter list (enable/disable) |
 | `/control/clients` | GET | List clients |
 | `/control/clients/add` | POST | Add client config |
 | `/control/clients/update` | POST | Update client config |
+| `/control/clients/search` | GET | Search clients (preferred over /find) |
 | `/control/blocked_services/all` | GET | List blockable services |
-| `/control/blocked_services/set` | POST | Set blocked services |
+| `/control/blocked_services/set` | POST | Set blocked services (schedule support) |
 | `/control/rewrite/list` | GET | List DNS rewrites |
+| `/control/rewrite/add` | POST | Add DNS rewrite rule |
+| `/control/rewrite/delete` | POST | Remove DNS rewrite rule |
+| `/control/rewrite/update` | POST | Update DNS rewrite rule |
 | `/control/dhcp/status` | GET | DHCP status and leases |
+| `/control/dns_info` | GET | DNS configuration (cache, upstream) |
+| `/control/dns_config` | POST | Update DNS configuration |
+| `/control/querylog` | GET | Query log with filters |
+| `/control/stats` | GET | DNS statistics |
+| `/control/stats/reset` | POST | Reset statistics |
+| `/control/querylog/clear` | POST | Clear query log |
 
 ## Task Tracking with Beads
 
@@ -131,3 +155,27 @@ bd dep add <child> <parent> # Add dependency
 - Repository must have GitHub releases
 - README must document installation and configuration
 - Add to `home-assistant/brands` for icons
+
+## Changelog Management
+
+This project maintains a manual `CHANGELOG.md` following the [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format.
+
+### Workflow
+1. **During development**: Add entries under `## [Unreleased]` as changes are made
+2. **At release time**: Rename `[Unreleased]` to `[X.Y.Z] - YYYY-MM-DD` and create a new empty `[Unreleased]` section
+
+### Entry Categories
+Use these standard sections under each version:
+- `### Added` - New features
+- `### Changed` - Changes in existing functionality
+- `### Deprecated` - Soon-to-be removed features
+- `### Removed` - Now removed features
+- `### Fixed` - Bug fixes
+- `### Security` - Vulnerability fixes
+
+### Guidelines
+- Write entries for users, not developers (focus on impact, not implementation)
+- Group related changes together
+- Use bullet points with brief, clear descriptions
+- Link to issues/PRs when relevant: `([#123](link))`
+- The release workflow extracts changelog content for GitHub release notes
