@@ -150,19 +150,22 @@ class AdGuardHomeClient:
             **self._get_auth_header(),
         }
 
-        # Only set Content-Type for requests with a JSON body
+        # Build request kwargs - only include json parameter when we have data
         # Some AdGuard Home endpoints reject Content-Type: application/json
         # when there's no body (returns 415 Unsupported Media Type)
+        request_kwargs: dict[str, Any] = {
+            "headers": headers,
+            "timeout": self._timeout,
+        }
         if data is not None:
             headers["Content-Type"] = "application/json"
+            request_kwargs["json"] = data
 
         try:
             async with self._session.request(
                 method,
                 url,
-                json=data if data is not None else None,
-                headers=headers,
-                timeout=self._timeout,
+                **request_kwargs,
             ) as response:
                 if response.status == 401:
                     raise AdGuardHomeAuthError("Invalid credentials")

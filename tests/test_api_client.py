@@ -194,6 +194,39 @@ class TestAdGuardHomeClient:
         assert "Content-Type" not in headers
 
     @pytest.mark.asyncio
+    async def test_request_without_data_omits_json_parameter(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test that requests WITHOUT data don't pass json parameter to aiohttp.
+
+        This is critical because passing json=None can still cause aiohttp to
+        set content-related headers. The json parameter should be completely
+        omitted when there's no data.
+        """
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client._request("POST", "/control/parental/enable")
+
+        call_kwargs = mock_session.request.call_args
+        # json parameter should not be in kwargs at all
+        assert "json" not in call_kwargs.kwargs
+
+    @pytest.mark.asyncio
+    async def test_request_with_data_includes_json_parameter(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test that requests WITH data include json parameter."""
+        mock_response = create_mock_response(status=200, json_data={})
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client._request("POST", "/control/protection", data={"enabled": True})
+
+        call_kwargs = mock_session.request.call_args
+        assert "json" in call_kwargs.kwargs
+        assert call_kwargs.kwargs["json"] == {"enabled": True}
+
+    @pytest.mark.asyncio
     async def test_set_parental_enable_no_content_type(
         self, client: AdGuardHomeClient, mock_session: MagicMock
     ) -> None:

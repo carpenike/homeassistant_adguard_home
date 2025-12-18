@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2025-12-18
+
+### Fixed
+
+- **415 Unsupported Media Type error (complete fix)** - Fixed API client to completely omit the `json` parameter when making POST requests without a body, rather than passing `json=None`. This fully resolves the 415 error on endpoints like `/control/parental/enable` and `/control/safebrowsing/enable`
+
+### Added
+
+- Additional regression tests for API request parameter handling
+
 ## [0.2.0] - 2025-12-17
 
 ### Added
@@ -80,7 +90,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Diagnostics support with sensitive data redaction
   - Full test coverage (114 tests)
 
-[Unreleased]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/carpenike/homeassistant_adguard_home/releases/tag/v0.1.0
