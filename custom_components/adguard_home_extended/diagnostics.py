@@ -7,6 +7,8 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_PASSWORD, CONF_USERNAME
 from homeassistant.core import HomeAssistant
 
+from .version import parse_version
+
 if TYPE_CHECKING:
     from . import AdGuardHomeConfigEntry
 
@@ -24,8 +26,26 @@ async def async_get_config_entry_diagnostics(
 
     data = coordinator.data
 
+    # Get version info for feature flags
+    version_str = data.status.version if data and data.status else None
+    version = parse_version(version_str)
+
     diagnostics_data: dict[str, Any] = {
         "config_entry": async_redact_data(entry.as_dict(), TO_REDACT),
+        "coordinator": {
+            "last_update_success": coordinator.last_update_success,
+            "last_update_time": (
+                coordinator.last_update_success_time.isoformat()
+                if hasattr(coordinator, "last_update_success_time")
+                and coordinator.last_update_success_time
+                else None
+            ),
+        },
+        "version": {
+            "raw": str(version),
+            "parsed": str(version.parsed) if version.parsed else None,
+            "feature_flags": version.get_feature_summary(),
+        },
         "data": {},
     }
 

@@ -1,6 +1,7 @@
 """Tests for diagnostics support."""
 from __future__ import annotations
 
+from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -25,6 +26,8 @@ class TestDiagnostics:
     def mock_coordinator(self) -> MagicMock:
         """Create a mock coordinator with test data."""
         coordinator = MagicMock()
+        coordinator.last_update_success = True
+        coordinator.last_update_success_time = datetime(2025, 12, 17, 12, 0, 0)
 
         data = AdGuardHomeData()
         data.status = AdGuardHomeStatus(
@@ -203,3 +206,65 @@ class TestDiagnostics:
 
         assert isinstance(result, dict)
         assert "data" in result
+
+    @pytest.mark.asyncio
+    async def test_diagnostics_includes_coordinator_info(
+        self, mock_coordinator: MagicMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that diagnostics includes coordinator metadata."""
+        hass = MagicMock()
+        hass.data = {}
+
+        result = await async_get_config_entry_diagnostics(hass, mock_entry)
+
+        assert "coordinator" in result
+        assert result["coordinator"]["last_update_success"] is True
+        assert result["coordinator"]["last_update_time"] == "2025-12-17T12:00:00"
+
+    @pytest.mark.asyncio
+    async def test_diagnostics_includes_version_info(
+        self, mock_coordinator: MagicMock, mock_entry: MagicMock
+    ) -> None:
+        """Test that diagnostics includes version and feature flags."""
+        hass = MagicMock()
+        hass.data = {}
+
+        result = await async_get_config_entry_diagnostics(hass, mock_entry)
+
+        assert "version" in result
+        assert result["version"]["raw"] == "0.107.0"
+        assert "feature_flags" in result["version"]
+        # v0.107.0 should not support stats_config (needs 0.107.30+)
+        assert result["version"]["feature_flags"]["stats_config"] is False
+
+    @pytest.mark.asyncio
+    async def test_diagnostics_feature_flags_newer_version(
+        self, mock_entry: MagicMock
+    ) -> None:
+        """Test feature flags with newer version."""
+        coordinator = MagicMock()
+        coordinator.last_update_success = True
+        coordinator.last_update_success_time = None
+
+        data = AdGuardHomeData()
+        data.status = AdGuardHomeStatus(
+            protection_enabled=True,
+            running=True,
+            dns_addresses=["192.168.1.1"],
+            dns_port=53,
+            http_port=3000,
+            version="0.107.69",  # Latest version
+        )
+        coordinator.data = data
+        mock_entry.runtime_data = coordinator
+
+        hass = MagicMock()
+        hass.data = {}
+
+        result = await async_get_config_entry_diagnostics(hass, mock_entry)
+
+        assert result["version"]["raw"] == "0.107.69"
+        # v0.107.69 should support all features
+        assert result["version"]["feature_flags"]["stats_config"] is True
+        assert result["version"]["feature_flags"]["rewrite_enabled"] is True
+        assert result["version"]["feature_flags"]["querylog_response_status"] is True

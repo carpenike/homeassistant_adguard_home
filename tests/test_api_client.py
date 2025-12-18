@@ -1,12 +1,14 @@
 """Tests for the AdGuard Home Extended API client."""
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from aiohttp import ClientError
+from aiohttp import ClientError, ClientTimeout
 
 from custom_components.adguard_home_extended.api.client import (
+    DEFAULT_TIMEOUT,
     AdGuardHomeAuthError,
     AdGuardHomeClient,
     AdGuardHomeConnectionError,
@@ -127,6 +129,50 @@ class TestAdGuardHomeClient:
         )
         with pytest.raises(AdGuardHomeConnectionError, match="No session available"):
             await client._request("GET", "/control/status")
+
+    @pytest.mark.asyncio
+    async def test_request_timeout(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test request handles timeout properly."""
+        # Simulate a timeout by raising asyncio.TimeoutError
+        mock_session.request.side_effect = asyncio.TimeoutError()
+
+        with pytest.raises(AdGuardHomeConnectionError, match="timed out"):
+            await client._request("GET", "/control/status")
+
+    @pytest.mark.asyncio
+    async def test_request_uses_timeout(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test that requests include timeout parameter."""
+        mock_response = create_mock_response(
+            status=200,
+            json_data={"protection_enabled": True, "running": True},
+        )
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client._request("GET", "/control/status")
+
+        # Verify timeout was passed to the request
+        call_kwargs = mock_session.request.call_args
+        assert "timeout" in call_kwargs.kwargs
+        assert call_kwargs.kwargs["timeout"] == DEFAULT_TIMEOUT
+
+    def test_default_timeout_value(self) -> None:
+        """Test default timeout is 30 seconds."""
+        assert DEFAULT_TIMEOUT.total == 30
+
+    def test_custom_timeout(self) -> None:
+        """Test client accepts custom timeout."""
+        custom_timeout = ClientTimeout(total=60)
+        client = AdGuardHomeClient(
+            host="192.168.1.1",
+            port=3000,
+            request_timeout=custom_timeout,
+        )
+        assert client._timeout == custom_timeout
+        assert client._timeout.total == 60
 
     @pytest.mark.asyncio
     async def test_get_status(

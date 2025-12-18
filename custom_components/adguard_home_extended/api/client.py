@@ -1,12 +1,13 @@
 """AdGuard Home API client."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from base64 import b64encode
 from typing import Any
 
-from aiohttp import ClientError, ClientResponseError, ClientSession
+from aiohttp import ClientError, ClientResponseError, ClientSession, ClientTimeout
 
 from ..const import (
     API_BLOCKED_SERVICES_ALL,
@@ -64,6 +65,9 @@ from .models import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Default timeout for API requests (30 seconds)
+DEFAULT_TIMEOUT = ClientTimeout(total=30)
+
 
 class AdGuardHomeError(Exception):
     """Base exception for AdGuard Home errors."""
@@ -88,8 +92,19 @@ class AdGuardHomeClient:
         password: str | None = None,
         use_ssl: bool = False,
         session: ClientSession | None = None,
+        request_timeout: ClientTimeout | None = None,
     ) -> None:
-        """Initialize the client."""
+        """Initialize the client.
+
+        Args:
+            host: AdGuard Home server hostname or IP.
+            port: AdGuard Home server port.
+            username: Optional username for authentication.
+            password: Optional password for authentication.
+            use_ssl: Whether to use HTTPS.
+            session: aiohttp ClientSession to use for requests.
+            request_timeout: Optional custom timeout (default: 30 seconds).
+        """
         self._host = host
         self._port = port
         self._username = username
@@ -97,6 +112,7 @@ class AdGuardHomeClient:
         self._use_ssl = use_ssl
         self._session = session
         self._base_url = f"{'https' if use_ssl else 'http'}://{host}:{port}"
+        self._timeout = request_timeout or DEFAULT_TIMEOUT
 
     def _get_auth_header(self) -> dict[str, str]:
         """Get the authorization header."""
@@ -112,7 +128,20 @@ class AdGuardHomeClient:
         endpoint: str,
         data: dict[str, Any] | None = None,
     ) -> Any:
-        """Make an API request."""
+        """Make an API request.
+
+        Args:
+            method: HTTP method (GET, POST, PUT, DELETE).
+            endpoint: API endpoint path.
+            data: Optional JSON data to send.
+
+        Returns:
+            Parsed JSON response or None for empty responses.
+
+        Raises:
+            AdGuardHomeConnectionError: On connection or timeout errors.
+            AdGuardHomeAuthError: On authentication failures.
+        """
         if self._session is None:
             raise AdGuardHomeConnectionError("No session available")
 
@@ -128,6 +157,7 @@ class AdGuardHomeClient:
                 url,
                 json=data,
                 headers=headers,
+                timeout=self._timeout,
             ) as response:
                 if response.status == 401:
                     raise AdGuardHomeAuthError("Invalid credentials")
@@ -144,6 +174,10 @@ class AdGuardHomeClient:
 
                 return json.loads(content)
 
+        except asyncio.TimeoutError as err:
+            raise AdGuardHomeConnectionError(
+                f"Request to {endpoint} timed out after {self._timeout.total}s"
+            ) from err
         except ClientResponseError as err:
             if err.status in (401, 403):
                 raise AdGuardHomeAuthError(f"Authentication failed: {err}") from err

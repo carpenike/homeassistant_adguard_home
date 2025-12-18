@@ -287,6 +287,74 @@
           "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
         }
       }
+    },
+    "check_host": {
+      "name": "Check Host",
+      "description": "Check how a domain would be filtered by AdGuard Home. Returns filtering result including reason, matching rules, and blocked service info.",
+      "fields": {
+        "domain": {
+          "name": "Domain",
+          "description": "The domain name to check (e.g., example.com or ads.example.com)."
+        },
+        "client": {
+          "name": "Client",
+          "description": "Optional client ID to check filtering rules for a specific client. Uses global rules if not specified. Requires AdGuard Home v0.107.58+."
+        },
+        "qtype": {
+          "name": "Query Type",
+          "description": "Optional DNS query type to check (e.g., A, AAAA, CNAME, MX). Defaults to A if not specified. Requires AdGuard Home v0.107.58+."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "get_query_log": {
+      "name": "Get Query Log",
+      "description": "Retrieve paginated DNS query log entries. Supports filtering by domain search and response status.",
+      "fields": {
+        "limit": {
+          "name": "Limit",
+          "description": "Maximum number of entries to return (1-5000). Default is 100."
+        },
+        "offset": {
+          "name": "Offset",
+          "description": "Number of entries to skip for pagination. Default is 0 (start from most recent)."
+        },
+        "search": {
+          "name": "Search",
+          "description": "Optional search string to filter by domain name."
+        },
+        "response_status": {
+          "name": "Response Status",
+          "description": "Filter by response status. 'all' returns all queries, 'filtered' returns only blocked queries."
+        },
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "clear_query_log": {
+      "name": "Clear Query Log",
+      "description": "Clear all entries from the AdGuard Home query log. This action cannot be undone.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
+    },
+    "reset_stats": {
+      "name": "Reset Statistics",
+      "description": "Reset all AdGuard Home statistics counters to zero. This action cannot be undone.",
+      "fields": {
+        "entry_id": {
+          "name": "Entry ID",
+          "description": "The config entry ID for the AdGuard Home instance. Required only when multiple instances are configured."
+        }
+      }
     }
   }
 }
