@@ -14,6 +14,7 @@ from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
 from custom_components.adguard_home_extended.config_flow import (
     AdGuardHomeConfigFlow,
     AdGuardHomeOptionsFlow,
+    _normalize_host_input,
 )
 from custom_components.adguard_home_extended.const import (
     CONF_ATTR_LIST_LIMIT,
@@ -24,6 +25,77 @@ from custom_components.adguard_home_extended.const import (
     DEFAULT_QUERY_LOG_LIMIT,
     DEFAULT_SCAN_INTERVAL,
 )
+
+
+class TestNormalizeHostInput:
+    """Tests for the _normalize_host_input helper function."""
+
+    def test_plain_hostname(self) -> None:
+        """Test plain hostname without scheme."""
+        host, ssl, port = _normalize_host_input("adguard.local")
+        assert host == "adguard.local"
+        assert ssl is None
+        assert port is None
+
+    def test_https_scheme(self) -> None:
+        """Test https:// scheme sets SSL and port 443."""
+        host, ssl, port = _normalize_host_input("https://adguard.local")
+        assert host == "adguard.local"
+        assert ssl is True
+        assert port == 443
+
+    def test_http_scheme(self) -> None:
+        """Test http:// scheme sets SSL=False and port 80."""
+        host, ssl, port = _normalize_host_input("http://adguard.local")
+        assert host == "adguard.local"
+        assert ssl is False
+        assert port == 80
+
+    def test_https_with_custom_port(self) -> None:
+        """Test https:// with custom port in URL."""
+        host, ssl, port = _normalize_host_input("https://adguard.local:8443")
+        assert host == "adguard.local"
+        assert ssl is True
+        assert port == 8443
+
+    def test_http_with_custom_port(self) -> None:
+        """Test http:// with custom port in URL."""
+        host, ssl, port = _normalize_host_input("http://adguard.local:3000")
+        assert host == "adguard.local"
+        assert ssl is False
+        assert port == 3000
+
+    def test_strips_trailing_slash(self) -> None:
+        """Test trailing slashes are stripped."""
+        host, ssl, port = _normalize_host_input("https://adguard.local/")
+        assert host == "adguard.local"
+        assert ssl is True
+
+    def test_strips_path(self) -> None:
+        """Test paths are stripped."""
+        host, ssl, port = _normalize_host_input("https://adguard.local/some/path")
+        assert host == "adguard.local"
+        assert ssl is True
+
+    def test_strips_whitespace(self) -> None:
+        """Test whitespace is stripped."""
+        host, ssl, port = _normalize_host_input("  https://adguard.local  ")
+        assert host == "adguard.local"
+        assert ssl is True
+
+    def test_ip_address_with_https(self) -> None:
+        """Test IP address with https scheme."""
+        host, ssl, port = _normalize_host_input("https://192.168.1.100")
+        assert host == "192.168.1.100"
+        assert ssl is True
+        assert port == 443
+
+    def test_ip_address_with_port(self) -> None:
+        """Test IP address with custom port."""
+        host, ssl, port = _normalize_host_input("http://192.168.1.100:3000")
+        assert host == "192.168.1.100"
+        assert ssl is False
+        assert port == 3000
 
 
 @dataclass
@@ -79,6 +151,78 @@ class TestConfigFlow:
             assert "192.168.1.1" in result["title"]
             assert result["data"]["host"] == "192.168.1.1"
             assert result["data"]["port"] == 3000
+
+    @pytest.mark.asyncio
+    async def test_form_user_with_https_url(self, hass: HomeAssistant) -> None:
+        """Test that https:// URL is normalized and sets SSL=True, port=443."""
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_status = AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",
+            )
+            mock_client.get_status = AsyncMock(return_value=mock_status)
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "user"}
+
+            result = await flow.async_step_user(
+                user_input={
+                    "host": "https://adguard.example.com",
+                    "port": 3000,  # Default port, should be overridden to 443
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": False,  # Should be overridden to True
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            assert result["data"]["host"] == "adguard.example.com"
+            assert result["data"]["port"] == 443
+            assert result["data"]["ssl"] is True
+
+    @pytest.mark.asyncio
+    async def test_form_user_with_http_url_custom_port(
+        self, hass: HomeAssistant
+    ) -> None:
+        """Test that http:// URL with custom port is normalized correctly."""
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_status = AdGuardHomeStatus(
+                protection_enabled=True,
+                running=True,
+                version="0.107.43",
+            )
+            mock_client.get_status = AsyncMock(return_value=mock_status)
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "user"}
+
+            result = await flow.async_step_user(
+                user_input={
+                    "host": "http://192.168.1.100:3000",
+                    "port": 3000,  # Default port
+                    "username": "admin",
+                    "password": "password",
+                    "ssl": True,  # Should be overridden to False
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            assert result["data"]["host"] == "192.168.1.100"
+            assert result["data"]["port"] == 3000
+            assert result["data"]["ssl"] is False
 
     @pytest.mark.asyncio
     async def test_form_user_sets_unique_id(self, hass: HomeAssistant) -> None:

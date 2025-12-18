@@ -48,6 +48,51 @@ if TYPE_CHECKING:  # pragma: no cover
 
 _LOGGER = logging.getLogger(__name__)
 
+
+def _normalize_host_input(host: str) -> tuple[str, bool | None, int | None]:
+    """Normalize host input by stripping scheme and extracting SSL/port.
+
+    Args:
+        host: The host input which may include http:// or https:// scheme,
+              and optionally a port number (e.g., "https://adguard:8443")
+
+    Returns:
+        Tuple of (normalized_host, ssl_from_scheme, port_from_url) where:
+        - ssl_from_scheme is True for https, False for http, or None if no scheme
+        - port_from_url is the port if specified in URL, or suggested default
+          (443 for https, 80 for http), or None if no scheme was provided
+    """
+    host = host.strip()
+    ssl_from_scheme: bool | None = None
+    port_from_url: int | None = None
+
+    if host.startswith("https://"):
+        host = host[8:]  # Remove "https://"
+        ssl_from_scheme = True
+        port_from_url = 443  # Default HTTPS port
+    elif host.startswith("http://"):
+        host = host[7:]  # Remove "http://"
+        ssl_from_scheme = False
+        port_from_url = 80  # Default HTTP port
+
+    # Strip trailing slashes and paths
+    host = host.rstrip("/")
+    if "/" in host:
+        host = host.split("/")[0]
+
+    # Extract port if specified in host (e.g., "adguard:8443")
+    if ":" in host:
+        host_part, port_str = host.rsplit(":", 1)
+        try:
+            port_from_url = int(port_str)
+            host = host_part
+        except ValueError:
+            # Not a valid port, keep as-is (might be IPv6 without brackets)
+            pass
+
+    return host, ssl_from_scheme, port_from_url
+
+
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
@@ -114,8 +159,18 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             # User has confirmed, try to connect
             # Use user-provided host (user can edit), fallback to discovered host
-            host = user_input.get(CONF_HOST, self._discovered_host or "")
+            raw_host = user_input.get(CONF_HOST, self._discovered_host or "")
+            host, ssl_from_scheme, port_from_url = _normalize_host_input(raw_host)
             port = user_input.get(CONF_PORT, DEFAULT_PORT)
+
+            # If user provided a scheme, use it to set SSL
+            use_ssl = user_input.get(CONF_SSL, False)
+            if ssl_from_scheme is not None:
+                use_ssl = ssl_from_scheme
+
+            # If port was extracted from URL or scheme implies a port, use it
+            if port_from_url is not None and port == DEFAULT_PORT:
+                port = port_from_url
 
             # Check if already configured
             self._async_abort_entries_match({CONF_HOST: host})
@@ -129,7 +184,7 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                 port=port,
                 username=user_input.get(CONF_USERNAME),
                 password=user_input.get(CONF_PASSWORD),
-                use_ssl=user_input.get(CONF_SSL, False),
+                use_ssl=use_ssl,
                 session=session,
             )
 
@@ -160,7 +215,7 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                         CONF_PORT: port,
                         CONF_USERNAME: user_input.get(CONF_USERNAME),
                         CONF_PASSWORD: user_input.get(CONF_PASSWORD),
-                        CONF_SSL: user_input.get(CONF_SSL, False),
+                        CONF_SSL: use_ssl,
                         CONF_VERIFY_SSL: user_input.get(CONF_VERIFY_SSL, True),
                     },
                 )
@@ -189,8 +244,23 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
+            # Normalize host input (strip http:// or https:// if present)
+            host, ssl_from_scheme, port_from_url = _normalize_host_input(
+                user_input[CONF_HOST]
+            )
+            user_input[CONF_HOST] = host
+
+            # If user provided a scheme, use it to set SSL
+            if ssl_from_scheme is not None:
+                user_input[CONF_SSL] = ssl_from_scheme
+
+            # If port was extracted from URL or scheme implies a port, use it
+            # (only if user hasn't changed port from default)
+            if port_from_url is not None and user_input[CONF_PORT] == DEFAULT_PORT:
+                user_input[CONF_PORT] = port_from_url
+
             # Check if already configured
-            self._async_abort_entries_match({CONF_HOST: user_input[CONF_HOST]})
+            self._async_abort_entries_match({CONF_HOST: host})
 
             # Test connection
             session = async_get_clientsession(
@@ -198,7 +268,7 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
             )
 
             client = AdGuardHomeClient(
-                host=user_input[CONF_HOST],
+                host=host,
                 port=user_input[CONF_PORT],
                 username=user_input.get(CONF_USERNAME),
                 password=user_input.get(CONF_PASSWORD),
@@ -217,14 +287,14 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "unknown"
             else:
                 # Set unique ID based on host and port to prevent duplicates
-                unique_id = f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
+                unique_id = f"{host}:{user_input[CONF_PORT]}"
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured()
 
                 # Create a title from the host
-                title = f"AdGuard Home ({user_input[CONF_HOST]})"
+                title = f"AdGuard Home ({host})"
                 if status.version:
-                    title = f"AdGuard Home {status.version} ({user_input[CONF_HOST]})"
+                    title = f"AdGuard Home {status.version} ({host})"
 
                 return self.async_create_entry(title=title, data=user_input)
 
