@@ -8,6 +8,13 @@
   <a href="https://github.com/hacs/integration"><img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=for-the-badge" alt="HACS Badge"></a>
   <a href="https://github.com/carpenike/homeassistant_adguard_home/releases"><img src="https://img.shields.io/github/v/release/carpenike/homeassistant_adguard_home?style=for-the-badge" alt="GitHub Release"></a>
   <a href="LICENSE"><img src="https://img.shields.io/github/license/carpenike/homeassistant_adguard_home?style=for-the-badge" alt="License"></a>
+  <a href="https://github.com/carpenike/homeassistant_adguard_home/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/carpenike/homeassistant_adguard_home/ci.yml?branch=main&style=for-the-badge&label=CI" alt="CI Status"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/carpenike/homeassistant_adguard_home/stargazers"><img src="https://img.shields.io/github/stars/carpenike/homeassistant_adguard_home?style=for-the-badge" alt="GitHub Stars"></a>
+  <a href="https://github.com/carpenike/homeassistant_adguard_home/issues"><img src="https://img.shields.io/github/issues/carpenike/homeassistant_adguard_home?style=for-the-badge" alt="GitHub Issues"></a>
+  <img src="https://img.shields.io/badge/Home%20Assistant-2025.1+-blue?style=for-the-badge&logo=homeassistant" alt="Home Assistant 2025.1+">
 </p>
 
 A custom Home Assistant integration that provides **extended functionality** for AdGuard Home beyond the official core integration. Control DNS filtering, manage blocked services, monitor query statistics, and configure per-client settings—all from Home Assistant.
