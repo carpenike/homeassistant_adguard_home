@@ -159,6 +159,74 @@ class TestAdGuardHomeClient:
         assert "timeout" in call_kwargs.kwargs
         assert call_kwargs.kwargs["timeout"] == DEFAULT_TIMEOUT
 
+    @pytest.mark.asyncio
+    async def test_request_with_json_data_includes_content_type(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test that requests WITH JSON data include Content-Type header."""
+        mock_response = create_mock_response(status=200, json_data={})
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client._request("POST", "/control/protection", data={"enabled": True})
+
+        call_kwargs = mock_session.request.call_args
+        headers = call_kwargs.kwargs["headers"]
+        assert "Content-Type" in headers
+        assert headers["Content-Type"] == "application/json"
+
+    @pytest.mark.asyncio
+    async def test_request_without_json_data_omits_content_type(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test that requests WITHOUT JSON data omit Content-Type header.
+
+        This is critical for AdGuard Home endpoints like /control/parental/enable
+        that return 415 Unsupported Media Type if Content-Type: application/json
+        is sent without a body.
+        """
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client._request("POST", "/control/parental/enable")
+
+        call_kwargs = mock_session.request.call_args
+        headers = call_kwargs.kwargs["headers"]
+        assert "Content-Type" not in headers
+
+    @pytest.mark.asyncio
+    async def test_set_parental_enable_no_content_type(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test set_parental(True) does not send Content-Type header.
+
+        Regression test for 415 Unsupported Media Type error.
+        """
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_parental(True)
+
+        call_kwargs = mock_session.request.call_args
+        headers = call_kwargs.kwargs["headers"]
+        assert "Content-Type" not in headers
+
+    @pytest.mark.asyncio
+    async def test_set_safebrowsing_enable_no_content_type(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test set_safebrowsing(True) does not send Content-Type header.
+
+        Regression test for 415 Unsupported Media Type error.
+        """
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        await client.set_safebrowsing(True)
+
+        call_kwargs = mock_session.request.call_args
+        headers = call_kwargs.kwargs["headers"]
+        assert "Content-Type" not in headers
+
     def test_default_timeout_value(self) -> None:
         """Test default timeout is 30 seconds."""
         assert DEFAULT_TIMEOUT.total == 30

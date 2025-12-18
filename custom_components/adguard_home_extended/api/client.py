@@ -147,15 +147,20 @@ class AdGuardHomeClient:
 
         url = f"{self._base_url}{endpoint}"
         headers = {
-            "Content-Type": "application/json",
             **self._get_auth_header(),
         }
+
+        # Only set Content-Type for requests with a JSON body
+        # Some AdGuard Home endpoints reject Content-Type: application/json
+        # when there's no body (returns 415 Unsupported Media Type)
+        if data is not None:
+            headers["Content-Type"] = "application/json"
 
         try:
             async with self._session.request(
                 method,
                 url,
-                json=data,
+                json=data if data is not None else None,
                 headers=headers,
                 timeout=self._timeout,
             ) as response:

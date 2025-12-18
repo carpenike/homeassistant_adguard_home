@@ -263,6 +263,7 @@ class AdGuardHomeSwitch(
     coordinator: AdGuardHomeDataUpdateCoordinator
     entity_description: AdGuardHomeSwitchEntityDescription
     _attr_has_entity_name = True
+    _logged_unavailable: bool = False  # Track if we've logged unavailability
 
     def __init__(
         self,
@@ -274,6 +275,32 @@ class AdGuardHomeSwitch(
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{description.key}"
         self._attr_device_info = coordinator.device_info
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available.
+
+        The entity is unavailable if the coordinator failed to update
+        OR if the required data for this switch is not present (e.g.,
+        stats_config/querylog_config on older AdGuard Home versions).
+        """
+        if not super().available:
+            return False
+        # If is_on_fn returns None, the required data is missing
+        data_available = (
+            self.entity_description.is_on_fn(self.coordinator.data) is not None
+        )
+        if not data_available and not self._logged_unavailable:
+            _LOGGER.debug(
+                "Switch '%s' unavailable: required data not present "
+                "(feature may not be supported by this AdGuard Home version)",
+                self.entity_description.key,
+            )
+            self._logged_unavailable = True
+        elif data_available and self._logged_unavailable:
+            # Reset flag when data becomes available again
+            self._logged_unavailable = False
+        return data_available
 
     @property
     def is_on(self) -> bool | None:

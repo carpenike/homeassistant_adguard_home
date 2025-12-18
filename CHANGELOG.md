@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2025-12-17
+
+### Added
+
+- Per-client blocked service switches for granular control (e.g., block YouTube for specific clients)
+  - Individual switch for each service per client
+  - Automatically unavailable when client uses global blocked services setting
+  - Organized under EntityCategory.CONFIG
+- Debug logging when switches become unavailable due to missing data
+- New tests for switch availability and API Content-Type handling (10 new tests)
+
+### Fixed
+
+- **415 Unsupported Media Type error** - Fixed API client sending `Content-Type: application/json` header on POST requests without a body (e.g., `/control/parental/enable`), which caused all entities to become unavailable on newer AdGuard Home versions
+- Switch entities now properly report unavailable state when required data is missing (e.g., stats_config on older AdGuard Home versions)
+
 ## [0.1.1] - 2025-12-17
 
 ### Added
@@ -64,5 +80,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Diagnostics support with sensitive data redaction
   - Full test coverage (114 tests)
 
-[Unreleased]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.1.1...v0.2.0
+[0.1.1]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/carpenike/homeassistant_adguard_home/releases/tag/v0.1.0

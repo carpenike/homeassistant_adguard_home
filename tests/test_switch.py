@@ -890,6 +890,150 @@ class TestAdGuardHomeSwitch:
         mock_coordinator.client.set_protection.assert_called_once_with(False)
         mock_coordinator.async_request_refresh.assert_called_once()
 
+    def test_switch_available_when_data_present(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test AdGuardHomeSwitch available when required data is present."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        # Set up coordinator as available with valid data
+        mock_coordinator.last_update_success = True
+        mock_coordinator.data.status = AdGuardHomeStatus(
+            protection_enabled=True, running=True
+        )
+
+        description = next(d for d in SWITCH_TYPES if d.key == "protection")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        assert switch.available is True
+
+    def test_switch_unavailable_when_data_missing(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test AdGuardHomeSwitch unavailable when required data is None."""
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        # Set up coordinator as available but data.status is None
+        mock_coordinator.last_update_success = True
+        mock_coordinator.data.status = None
+
+        description = next(d for d in SWITCH_TYPES if d.key == "protection")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        assert switch.available is False
+
+    def test_switch_unavailable_when_stats_config_missing(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test statistics switch unavailable when stats_config is None."""
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        # Set up coordinator as available but stats_config is None
+        mock_coordinator.last_update_success = True
+        mock_coordinator.data.stats_config = None
+
+        description = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        assert switch.available is False
+
+    def test_switch_available_when_stats_config_present(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Test statistics switch available when stats_config is present."""
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        # Set up coordinator as available with stats_config
+        mock_coordinator.last_update_success = True
+        mock_coordinator.data.stats_config = {"enabled": True, "interval": 86400000}
+
+        description = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        assert switch.available is True
+
+    def test_switch_logs_unavailability_once(
+        self, mock_coordinator: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that switch logs unavailability only once."""
+        import logging
+
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        mock_coordinator.last_update_success = True
+        mock_coordinator.data.stats_config = None
+
+        description = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        with caplog.at_level(logging.DEBUG):
+            # First check - should log
+            _ = switch.available
+            # Second check - should NOT log again
+            _ = switch.available
+            # Third check - should NOT log again
+            _ = switch.available
+
+        # Should only have one log message about unavailability
+        unavailable_logs = [
+            r for r in caplog.records if "unavailable" in r.message.lower()
+        ]
+        assert len(unavailable_logs) == 1
+        assert "statistics" in unavailable_logs[0].message
+
+    def test_switch_resets_unavailability_flag_when_data_returns(
+        self, mock_coordinator: MagicMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """Test that switch resets log flag when data becomes available again."""
+        import logging
+
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        mock_coordinator.last_update_success = True
+        mock_coordinator.data.stats_config = None
+
+        description = next(d for d in SWITCH_TYPES if d.key == "statistics")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        with caplog.at_level(logging.DEBUG):
+            # First check - unavailable, logs
+            assert switch.available is False
+            assert switch._logged_unavailable is True
+
+            # Data becomes available
+            mock_coordinator.data.stats_config = {"enabled": True}
+            assert switch.available is True
+            assert switch._logged_unavailable is False
+
+            # Data goes away again - should log again
+            mock_coordinator.data.stats_config = None
+            assert switch.available is False
+
+        # Should have two log messages (once for each unavailability)
+        unavailable_logs = [
+            r for r in caplog.records if "unavailable" in r.message.lower()
+        ]
+        assert len(unavailable_logs) == 2
+
 
 class TestClientEntityManager:
     """Tests for ClientEntityManager."""
