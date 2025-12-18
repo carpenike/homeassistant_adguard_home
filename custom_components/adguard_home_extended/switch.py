@@ -74,8 +74,14 @@ SWITCH_TYPES: tuple[AdGuardHomeSwitchEntityDescription, ...] = (
         turn_on_fn=lambda client: client.set_safesearch(True),
         turn_off_fn=lambda client: client.set_safesearch(False),
     ),
-    # Note: dns_cache switch is handled separately by AdGuardDnsCacheSwitch
-    # due to version-specific behavior (cache_enabled field only in v0.107.65+)
+    AdGuardHomeSwitchEntityDescription(
+        key="dns_cache",
+        translation_key="dns_cache",
+        icon="mdi:cached",
+        is_on_fn=lambda data: data.dns_info.cache_enabled if data.dns_info else None,
+        turn_on_fn=lambda client: client.set_dns_cache_enabled(True),
+        turn_off_fn=lambda client: client.set_dns_cache_enabled(False),
+    ),
     AdGuardHomeSwitchEntityDescription(
         key="dnssec",
         translation_key="dnssec",
@@ -123,12 +129,22 @@ async def async_setup_entry(
     """Set up AdGuard Home switches based on a config entry."""
     coordinator = entry.runtime_data
 
+    # Filter out switches that require newer AdGuard Home versions
+    supported_switches = [
+        desc
+        for desc in SWITCH_TYPES
+        if desc.key != "dns_cache"
+        or (
+            coordinator.server_version
+            and coordinator.server_version.supports_cache_enabled
+        )
+    ]
+
     # Add global switches
     entities: list[SwitchEntity] = [
-        AdGuardHomeSwitch(coordinator, description) for description in SWITCH_TYPES
+        AdGuardHomeSwitch(coordinator, description)
+        for description in supported_switches
     ]
-    # Add the DNS cache switch (handled separately due to version-specific behavior)
-    entities.append(AdGuardDnsCacheSwitch(coordinator))
     async_add_entities(entities)
 
     # Set up dynamic client entity manager
@@ -309,95 +325,6 @@ class AdGuardHomeSwitch(
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         await self.entity_description.turn_off_fn(self.coordinator.client)
-        await self.coordinator.async_request_refresh()
-
-
-class AdGuardDnsCacheSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
-):
-    """Representation of the DNS Cache switch with version-aware behavior.
-
-    The cache_enabled API field is only available in AdGuard Home v0.107.65+.
-    For older versions:
-    - State is inferred from cache_size > 0
-    - Toggling is not supported (shows a warning)
-    """
-
-    coordinator: AdGuardHomeDataUpdateCoordinator
-    _attr_has_entity_name = True
-    _attr_translation_key = "dns_cache"
-    _attr_icon = "mdi:cached"
-
-    def __init__(
-        self,
-        coordinator: AdGuardHomeDataUpdateCoordinator,
-    ) -> None:
-        """Initialize the DNS cache switch."""
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{coordinator.config_entry.entry_id}_dns_cache"
-        self._attr_device_info = coordinator.device_info
-
-    @property
-    def available(self) -> bool:
-        """Return True if entity is available."""
-        if not super().available:
-            return False
-        return (
-            self.coordinator.data is not None
-            and self.coordinator.data.dns_info is not None
-        )
-
-    @property
-    def is_on(self) -> bool | None:
-        """Return true if DNS cache is enabled."""
-        if self.coordinator.data is None or self.coordinator.data.dns_info is None:
-            return None
-        return self.coordinator.data.dns_info.cache_enabled
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any]:
-        """Return additional state attributes."""
-        attrs: dict[str, Any] = {}
-        if self.coordinator.server_version:
-            attrs["native_toggle_support"] = (
-                self.coordinator.server_version.supports_cache_enabled
-            )
-        if self.coordinator.data and self.coordinator.data.dns_info:
-            attrs["cache_size"] = self.coordinator.data.dns_info.cache_size
-        return attrs
-
-    async def async_turn_on(self, **kwargs: Any) -> None:
-        """Enable DNS caching."""
-        if (
-            self.coordinator.server_version
-            and self.coordinator.server_version.supports_cache_enabled
-        ):
-            await self.coordinator.client.set_dns_cache_enabled(True)
-        else:
-            _LOGGER.warning(
-                "Cannot enable DNS cache on AdGuard Home < v0.107.65. "
-                "The cache_enabled API field is not supported in this version. "
-                "Cache is currently %s based on cache_size",
-                "enabled" if self.is_on else "disabled",
-            )
-            return
-        await self.coordinator.async_request_refresh()
-
-    async def async_turn_off(self, **kwargs: Any) -> None:
-        """Disable DNS caching."""
-        if (
-            self.coordinator.server_version
-            and self.coordinator.server_version.supports_cache_enabled
-        ):
-            await self.coordinator.client.set_dns_cache_enabled(False)
-        else:
-            _LOGGER.warning(
-                "Cannot disable DNS cache on AdGuard Home < v0.107.65. "
-                "The cache_enabled API field is not supported in this version. "
-                "Cache is currently %s based on cache_size",
-                "enabled" if self.is_on else "disabled",
-            )
-            return
         await self.coordinator.async_request_refresh()
 
 
