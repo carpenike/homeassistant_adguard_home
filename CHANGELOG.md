@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added `get_safebrowsing_status()` and `get_parental_status()` methods to API client
 - Added `supports_cache_enabled` version feature flag (v0.107.65+)
 - DNS Cache switch is now filtered out on AdGuard Home versions < v0.107.65
+- Query Logging and Statistics switches are now filtered out on AdGuard Home versions < v0.107.30 (these features require API endpoints that don't exist in older versions)
 
 ## [0.2.5] - 2025-12-18
 

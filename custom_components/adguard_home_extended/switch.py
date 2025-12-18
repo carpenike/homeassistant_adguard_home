@@ -128,17 +128,20 @@ async def async_setup_entry(
 ) -> None:
     """Set up AdGuard Home switches based on a config entry."""
     coordinator = entry.runtime_data
+    version = coordinator.server_version
 
     # Filter out switches that require newer AdGuard Home versions
-    supported_switches = [
-        desc
-        for desc in SWITCH_TYPES
-        if desc.key != "dns_cache"
-        or (
-            coordinator.server_version
-            and coordinator.server_version.supports_cache_enabled
-        )
-    ]
+    def is_switch_supported(desc: AdGuardHomeSwitchEntityDescription) -> bool:
+        """Check if a switch is supported by the current AdGuard Home version."""
+        if desc.key == "dns_cache":
+            return version is not None and version.supports_cache_enabled
+        if desc.key == "query_logging":
+            return version is not None and version.supports_querylog_config
+        if desc.key == "statistics":
+            return version is not None and version.supports_stats_config
+        return True
+
+    supported_switches = [desc for desc in SWITCH_TYPES if is_switch_supported(desc)]
 
     # Add global switches
     entities: list[SwitchEntity] = [

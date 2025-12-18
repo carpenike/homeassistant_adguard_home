@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -322,11 +323,20 @@ class TestDnsCacheSwitch:
         # Simulate filtering logic from async_setup_entry
         mock_version = MagicMock()
         mock_version.supports_cache_enabled = False
+        mock_version.supports_querylog_config = True
+        mock_version.supports_stats_config = True
+
+        def is_switch_supported(desc: Any) -> bool:
+            if desc.key == "dns_cache":
+                return mock_version.supports_cache_enabled
+            if desc.key == "query_logging":
+                return mock_version.supports_querylog_config
+            if desc.key == "statistics":
+                return mock_version.supports_stats_config
+            return True
 
         supported_switches = [
-            desc
-            for desc in SWITCH_TYPES
-            if desc.key != "dns_cache" or mock_version.supports_cache_enabled
+            desc for desc in SWITCH_TYPES if is_switch_supported(desc)
         ]
 
         # dns_cache should be filtered out
@@ -340,16 +350,79 @@ class TestDnsCacheSwitch:
         # Simulate filtering logic from async_setup_entry
         mock_version = MagicMock()
         mock_version.supports_cache_enabled = True
+        mock_version.supports_querylog_config = True
+        mock_version.supports_stats_config = True
+
+        def is_switch_supported(desc: Any) -> bool:
+            if desc.key == "dns_cache":
+                return mock_version.supports_cache_enabled
+            if desc.key == "query_logging":
+                return mock_version.supports_querylog_config
+            if desc.key == "statistics":
+                return mock_version.supports_stats_config
+            return True
 
         supported_switches = [
-            desc
-            for desc in SWITCH_TYPES
-            if desc.key != "dns_cache" or mock_version.supports_cache_enabled
+            desc for desc in SWITCH_TYPES if is_switch_supported(desc)
         ]
 
         # dns_cache should be included
         dns_cache_keys = [d.key for d in supported_switches if d.key == "dns_cache"]
         assert len(dns_cache_keys) == 1
+
+
+class TestQueryLoggingAndStatsVersionGating:
+    """Tests for query logging and statistics switch version gating."""
+
+    def test_query_logging_filtered_on_old_version(self) -> None:
+        """Test query logging switch is filtered out on older AdGuard Home versions."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_version = MagicMock()
+        mock_version.supports_cache_enabled = True
+        mock_version.supports_querylog_config = False
+        mock_version.supports_stats_config = True
+
+        def is_switch_supported(desc: Any) -> bool:
+            if desc.key == "dns_cache":
+                return mock_version.supports_cache_enabled
+            if desc.key == "query_logging":
+                return mock_version.supports_querylog_config
+            if desc.key == "statistics":
+                return mock_version.supports_stats_config
+            return True
+
+        supported_switches = [
+            desc for desc in SWITCH_TYPES if is_switch_supported(desc)
+        ]
+
+        keys = [d.key for d in supported_switches if d.key == "query_logging"]
+        assert len(keys) == 0
+
+    def test_statistics_filtered_on_old_version(self) -> None:
+        """Test statistics switch is filtered out on older AdGuard Home versions."""
+        from custom_components.adguard_home_extended.switch import SWITCH_TYPES
+
+        mock_version = MagicMock()
+        mock_version.supports_cache_enabled = True
+        mock_version.supports_querylog_config = True
+        mock_version.supports_stats_config = False
+
+        def is_switch_supported(desc: Any) -> bool:
+            if desc.key == "dns_cache":
+                return mock_version.supports_cache_enabled
+            if desc.key == "query_logging":
+                return mock_version.supports_querylog_config
+            if desc.key == "statistics":
+                return mock_version.supports_stats_config
+            return True
+
+        supported_switches = [
+            desc for desc in SWITCH_TYPES if is_switch_supported(desc)
+        ]
+
+        keys = [d.key for d in supported_switches if d.key == "statistics"]
+        assert len(keys) == 0
 
 
 class TestDnssecSwitch:
