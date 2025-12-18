@@ -288,6 +288,24 @@ class TestFilteringStatus:
         assert status.interval == 24
         assert status.filters == []
 
+    def test_from_dict_with_null_filters(self) -> None:
+        """Test creating filtering status when API returns null for filters."""
+        # AdGuard Home API can return null for filters/whitelist_filters arrays
+        data = {
+            "enabled": True,
+            "interval": 12,
+            "filters": None,
+            "whitelist_filters": None,
+            "user_rules": None,
+        }
+        status = FilteringStatus.from_dict(data)
+
+        assert status.enabled is True
+        assert status.interval == 12
+        assert status.filters == []
+        assert status.whitelist_filters == []
+        assert status.user_rules == []
+
 
 class TestClientConfig:
     """Tests for ClientConfig model."""

@@ -377,6 +377,92 @@ class TestDnsConfigSensors:
         assert len(attrs["upstream_servers"]) == 15
 
 
+class TestConfiguredClientsSensor:
+    """Tests for configured clients sensor."""
+
+    def test_configured_clients_count(self) -> None:
+        """Test configured clients count value."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        data = AdGuardHomeData()
+        data.clients = [
+            {
+                "name": "Client1",
+                "ids": ["192.168.1.10"],
+                "blocked_services": ["youtube"],
+            },
+            {"name": "Client2", "ids": ["192.168.1.11"], "blocked_services": []},
+        ]
+
+        desc = next(d for d in SENSOR_TYPES if d.key == "configured_clients")
+        value = desc.value_fn(data)
+        assert value == 2
+
+    def test_configured_clients_attributes(self) -> None:
+        """Test configured clients attributes includes blocked_services."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        data = AdGuardHomeData()
+        data.clients = [
+            {
+                "name": "Kids Tablet",
+                "ids": ["192.168.1.100"],
+                "use_global_settings": False,
+                "filtering_enabled": True,
+                "parental_enabled": True,
+                "safebrowsing_enabled": True,
+                "safesearch_enabled": True,
+                "use_global_blocked_services": False,
+                "blocked_services": ["youtube", "tiktok"],
+            },
+        ]
+
+        desc = next(d for d in SENSOR_TYPES if d.key == "configured_clients")
+        attrs = desc.attributes_fn(data, 10, 20)
+        assert "clients" in attrs
+        assert len(attrs["clients"]) == 1
+        client = attrs["clients"][0]
+        assert client["name"] == "Kids Tablet"
+        assert client["blocked_services"] == ["youtube", "tiktok"]
+        assert client["parental_enabled"] is True
+        assert client["use_global_blocked_services"] is False
+
+    def test_configured_clients_none(self) -> None:
+        """Test configured clients with None clients."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        data = AdGuardHomeData()
+        data.clients = None
+
+        desc = next(d for d in SENSOR_TYPES if d.key == "configured_clients")
+        assert desc.value_fn(data) == 0
+        assert desc.attributes_fn(data, 10, 20) == {}
+
+    def test_configured_clients_empty(self) -> None:
+        """Test configured clients with empty list."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        data = AdGuardHomeData()
+        data.clients = []
+
+        desc = next(d for d in SENSOR_TYPES if d.key == "configured_clients")
+        assert desc.value_fn(data) == 0
+
+    def test_configured_clients_respects_limit(self) -> None:
+        """Test configured clients attribute respects list_limit."""
+        from custom_components.adguard_home_extended.sensor import SENSOR_TYPES
+
+        data = AdGuardHomeData()
+        data.clients = [
+            {"name": f"Client{i}", "ids": [f"192.168.1.{i}"], "blocked_services": []}
+            for i in range(30)
+        ]
+
+        desc = next(d for d in SENSOR_TYPES if d.key == "configured_clients")
+        attrs = desc.attributes_fn(data, 10, 15)
+        assert len(attrs["clients"]) == 15
+
+
 class TestAsyncSetupEntry:
     """Tests for sensor async_setup_entry."""
 

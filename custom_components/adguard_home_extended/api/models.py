@@ -174,9 +174,9 @@ class FilteringStatus:
         return cls(
             enabled=data.get("enabled", False),
             interval=data.get("interval", 24),
-            filters=data.get("filters", []),
-            whitelist_filters=data.get("whitelist_filters", []),
-            user_rules=data.get("user_rules", []),
+            filters=data.get("filters") or [],
+            whitelist_filters=data.get("whitelist_filters") or [],
+            user_rules=data.get("user_rules") or [],
         )
 
 

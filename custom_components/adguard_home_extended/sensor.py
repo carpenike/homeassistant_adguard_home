@@ -253,7 +253,7 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         key="dns_cache_size",
         translation_key="dns_cache_size",
         icon="mdi:database",
-        native_unit_of_measurement="bytes",
+        native_unit_of_measurement="B",
         device_class=SensorDeviceClass.DATA_SIZE,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
@@ -274,6 +274,38 @@ SENSOR_TYPES: tuple[AdGuardHomeSensorEntityDescription, ...] = (
         icon="mdi:shield-alert",
         entity_category=EntityCategory.DIAGNOSTIC,
         value_fn=lambda data: data.dns_info.blocking_mode if data.dns_info else None,
+    ),
+    # Configured clients sensor
+    AdGuardHomeSensorEntityDescription(
+        key="configured_clients",
+        translation_key="configured_clients",
+        icon="mdi:account-group",
+        native_unit_of_measurement="clients",
+        state_class=SensorStateClass.MEASUREMENT,
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda data: len(data.clients) if data.clients else 0,
+        attributes_fn=lambda data, top_limit, list_limit: (
+            {
+                "clients": [
+                    {
+                        "name": c.get("name", ""),
+                        "ids": c.get("ids", []),
+                        "use_global_settings": c.get("use_global_settings", True),
+                        "filtering_enabled": c.get("filtering_enabled", True),
+                        "parental_enabled": c.get("parental_enabled", False),
+                        "safebrowsing_enabled": c.get("safebrowsing_enabled", False),
+                        "safesearch_enabled": c.get("safesearch_enabled", False),
+                        "use_global_blocked_services": c.get(
+                            "use_global_blocked_services", True
+                        ),
+                        "blocked_services": c.get("blocked_services", []),
+                    }
+                    for c in (data.clients or [])[:list_limit]
+                ]
+            }
+            if data.clients
+            else {}
+        ),
     ),
 )
 

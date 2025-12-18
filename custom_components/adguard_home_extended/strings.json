@@ -116,6 +116,9 @@
       },
       "dns_blocking_mode": {
         "name": "DNS Blocking Mode"
+      },
+      "configured_clients": {
+        "name": "Configured Clients"
       }
     },
     "switch": {

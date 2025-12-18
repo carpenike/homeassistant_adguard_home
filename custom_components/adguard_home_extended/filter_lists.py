@@ -169,8 +169,9 @@ class FilterListEntityManager:
 
         new_entities: list[SwitchEntity] = []
 
-        # Process blocklist filters
-        for filter_data in self._coordinator.data.filtering.filters:
+        # Process blocklist filters (handle None gracefully)
+        filters = self._coordinator.data.filtering.filters or []
+        for filter_data in filters:
             url = filter_data.get("url", "")
             filter_key = f"filter_{url}"
 
@@ -184,8 +185,9 @@ class FilterListEntityManager:
                 )
                 self._tracked_filters.add(filter_key)
 
-        # Process whitelist filters
-        for filter_data in self._coordinator.data.filtering.whitelist_filters:
+        # Process whitelist filters (handle None gracefully)
+        whitelist_filters = self._coordinator.data.filtering.whitelist_filters or []
+        for filter_data in whitelist_filters:
             url = filter_data.get("url", "")
             filter_key = f"whitelist_{url}"
 

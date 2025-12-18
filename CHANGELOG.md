@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2025-12-18
+
+### Added
+
+- **Configured Clients sensor** - New sensor that exposes all configured AdGuard Home clients with their settings including `blocked_services`, enabling templates to access per-client blocked service data
+
+### Fixed
+
+- **NoneType error on startup** - Fixed `'NoneType' object is not iterable` error when AdGuard Home API returns `null` for `filters` or `whitelist_filters` arrays in the filtering status. Now handles null values gracefully by treating them as empty lists
+- **Invalid unit for DNS Cache Size sensor** - Changed native unit from `bytes` to `B` to comply with Home Assistant's `DATA_SIZE` device class requirements
+
 ## [0.2.1] - 2025-12-18
 
 ### Fixed
