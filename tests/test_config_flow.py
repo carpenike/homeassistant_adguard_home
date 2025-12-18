@@ -272,8 +272,9 @@ class TestOptionsFlow:
         mock_entry = MagicMock()
         mock_entry.options = {CONF_SCAN_INTERVAL: 60}
 
-        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow = AdGuardHomeOptionsFlow()
         flow.hass = hass
+        flow._config_entry = mock_entry  # Set the internal config entry
 
         result = await flow.async_step_init()
 
@@ -289,8 +290,9 @@ class TestOptionsFlow:
         mock_entry = MagicMock()
         mock_entry.options = {}
 
-        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow = AdGuardHomeOptionsFlow()
         flow.hass = hass
+        flow._config_entry = mock_entry  # Set the internal config entry
 
         result = await flow.async_step_init()
 
@@ -306,8 +308,9 @@ class TestOptionsFlow:
         mock_entry = MagicMock()
         mock_entry.options = {CONF_SCAN_INTERVAL: 30}
 
-        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow = AdGuardHomeOptionsFlow()
         flow.hass = hass
+        flow._config_entry = mock_entry  # Set the internal config entry
 
         result = await flow.async_step_init(
             user_input={
@@ -334,8 +337,9 @@ class TestOptionsFlow:
         mock_entry = MagicMock()
         mock_entry.options = {}  # No options set, should use defaults
 
-        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow = AdGuardHomeOptionsFlow()
         flow.hass = hass
+        flow._config_entry = mock_entry  # Set the internal config entry
 
         result = await flow.async_step_init()
 
@@ -351,8 +355,9 @@ class TestOptionsFlow:
         mock_entry = MagicMock()
         mock_entry.options = {}  # No options set, should use defaults
 
-        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow = AdGuardHomeOptionsFlow()
         flow.hass = hass
+        flow._config_entry = mock_entry  # Set the internal config entry
 
         result = await flow.async_step_init()
 
@@ -375,8 +380,9 @@ class TestOptionsFlow:
         mock_entry = MagicMock()
         mock_entry.options = {CONF_SCAN_INTERVAL: 60, CONF_QUERY_LOG_LIMIT: 500}
 
-        flow = AdGuardHomeOptionsFlow(mock_entry)
+        flow = AdGuardHomeOptionsFlow()
         flow.hass = hass
+        flow._config_entry = mock_entry  # Set the internal config entry
 
         result = await flow.async_step_init()
 

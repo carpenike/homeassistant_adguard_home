@@ -10,7 +10,7 @@ from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
-    OptionsFlowWithConfigEntry,
+    OptionsFlow,
 )
 from homeassistant.const import (
     CONF_HOST,
@@ -77,7 +77,7 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
         config_entry: ConfigEntry,
     ) -> AdGuardHomeOptionsFlow:
         """Get the options flow for this handler."""
-        return AdGuardHomeOptionsFlow(config_entry)
+        return AdGuardHomeOptionsFlow()
 
     async def async_step_dhcp(
         self, discovery_info: DhcpServiceInfo
@@ -291,7 +291,7 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
-class AdGuardHomeOptionsFlow(OptionsFlowWithConfigEntry):
+class AdGuardHomeOptionsFlow(OptionsFlow):
     """Handle options flow for AdGuard Home Extended."""
 
     async def async_step_init(
