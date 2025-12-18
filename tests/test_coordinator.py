@@ -72,7 +72,9 @@ class TestAdGuardHomeDataUpdateCoordinator:
                 "cache_size": 4194304,
             }
         )
-        client.get_blocked_services = AsyncMock(return_value=["facebook"])
+        client.get_blocked_services_with_schedule = AsyncMock(
+            return_value={"ids": ["facebook"], "schedule": {}}
+        )
         client.get_all_blocked_services = AsyncMock(return_value=[])
         client.get_clients = AsyncMock(return_value=[])
         client.get_dhcp_status = AsyncMock(return_value=MagicMock(enabled=False))

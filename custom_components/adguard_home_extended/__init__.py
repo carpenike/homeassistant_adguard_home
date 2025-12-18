@@ -43,6 +43,7 @@ SERVICE_ADD_DNS_REWRITE = "add_dns_rewrite"
 SERVICE_REMOVE_DNS_REWRITE = "remove_dns_rewrite"
 
 ATTR_SERVICES = "services"
+ATTR_SCHEDULE = "schedule"
 ATTR_NAME = "name"
 ATTR_URL = "url"
 ATTR_WHITELIST = "whitelist"
@@ -152,7 +153,8 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         """Handle the set_blocked_services service call."""
         coordinator = _get_coordinator(hass, call.data.get(ATTR_ENTRY_ID))
         services = call.data.get(ATTR_SERVICES, [])
-        await coordinator.client.set_blocked_services(services)
+        schedule = call.data.get(ATTR_SCHEDULE)
+        await coordinator.client.set_blocked_services(services, schedule)
         await coordinator.async_request_refresh()
 
     async def handle_add_filter_url(call: ServiceCall) -> None:

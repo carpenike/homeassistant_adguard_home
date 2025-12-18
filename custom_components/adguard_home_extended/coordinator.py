@@ -50,6 +50,7 @@ class AdGuardHomeData:
         self.filtering: FilteringStatus | None = None
         self.dns_info: DnsInfo | None = None
         self.blocked_services: list[str] = []
+        self.blocked_services_schedule: dict[str, Any] | None = None
         self.available_services: list[dict[str, Any]] = []
         self.clients: list[dict[str, Any]] = []
         self.dhcp: DhcpStatus | None = None
@@ -105,9 +106,11 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
             except AdGuardHomeConnectionError as err:
                 _LOGGER.debug("Failed to fetch DNS info: %s", err)
 
-            # Fetch blocked services
+            # Fetch blocked services (with schedule for v0.107.56+)
             try:
-                data.blocked_services = await self.client.get_blocked_services()
+                blocked_data = await self.client.get_blocked_services_with_schedule()
+                data.blocked_services = blocked_data.get("ids", [])
+                data.blocked_services_schedule = blocked_data.get("schedule")
                 services = await self.client.get_all_blocked_services()
                 data.available_services = [
                     {"id": svc.id, "name": svc.name} for svc in services

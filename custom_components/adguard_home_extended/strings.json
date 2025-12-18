@@ -129,11 +129,15 @@
   "services": {
     "set_blocked_services": {
       "name": "Set Blocked Services",
-      "description": "Set the list of services to block globally in AdGuard Home.",
+      "description": "Set the list of services to block globally in AdGuard Home with optional time-based schedule.",
       "fields": {
         "services": {
           "name": "Services",
           "description": "List of service IDs to block (e.g., facebook, youtube, tiktok). Any services not in this list will be unblocked."
+        },
+        "schedule": {
+          "name": "Schedule",
+          "description": "Optional time-based schedule for blocking (v0.107.56+). Times are milliseconds from midnight."
         },
         "entry_id": {
           "name": "Entry ID",
