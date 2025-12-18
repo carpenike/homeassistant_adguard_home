@@ -1,4 +1,5 @@
 """Blocked services switch platform for AdGuard Home Extended."""
+
 from __future__ import annotations
 
 import logging
@@ -161,7 +162,9 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
-class AdGuardBlockedServiceSwitch(CoordinatorEntity, SwitchEntity):
+class AdGuardBlockedServiceSwitch(
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+):
     """Switch to toggle blocking of a specific service."""
 
     coordinator: AdGuardHomeDataUpdateCoordinator

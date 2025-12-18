@@ -1,4 +1,5 @@
 """Config flow for AdGuard Home Extended integration."""
+
 from __future__ import annotations
 
 import logging

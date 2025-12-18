@@ -1,4 +1,5 @@
 """Tests for version parsing and feature detection."""
+
 from __future__ import annotations
 
 from custom_components.adguard_home_extended.version import (

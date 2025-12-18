@@ -1,4 +1,5 @@
 """Filter list switch entities for AdGuard Home Extended."""
+
 from __future__ import annotations
 
 import hashlib
@@ -26,7 +27,9 @@ def _get_filter_unique_id(url: str, whitelist: bool = False) -> str:
     return prefix + hashlib.md5(url.encode()).hexdigest()[:8]
 
 
-class FilterListSwitch(CoordinatorEntity, SwitchEntity):
+class FilterListSwitch(
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+):
     """Switch to enable/disable a filter list."""
 
     coordinator: AdGuardHomeDataUpdateCoordinator

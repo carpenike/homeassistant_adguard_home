@@ -1,4 +1,5 @@
 """Tests for the binary_sensor platform."""
+
 from unittest.mock import MagicMock
 
 import pytest

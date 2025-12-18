@@ -1,4 +1,5 @@
 """AdGuard Home API client package."""
+
 from .client import (
     AdGuardHomeAuthError,
     AdGuardHomeClient,

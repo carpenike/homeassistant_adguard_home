@@ -1,4 +1,5 @@
 """DataUpdateCoordinator for AdGuard Home Extended."""
+
 from __future__ import annotations
 
 import logging

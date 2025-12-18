@@ -1,4 +1,5 @@
 """Switch platform for AdGuard Home Extended."""
+
 from __future__ import annotations
 
 import hashlib
@@ -24,7 +25,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, kw_only=True)
-class AdGuardHomeSwitchEntityDescription(SwitchEntityDescription):
+class AdGuardHomeSwitchEntityDescription(SwitchEntityDescription):  # type: ignore[override]
     """Describes AdGuard Home switch entity."""
 
     is_on_fn: Callable[[AdGuardHomeData], bool | None]
@@ -254,7 +255,9 @@ class ClientEntityManager:
             self._unsubscribe = None
 
 
-class AdGuardHomeSwitch(CoordinatorEntity, SwitchEntity):
+class AdGuardHomeSwitch(
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+):
     """Representation of an AdGuard Home switch."""
 
     coordinator: AdGuardHomeDataUpdateCoordinator
@@ -361,7 +364,9 @@ class DnsRewriteEntityManager:
             self._unsubscribe = None
 
 
-class AdGuardDnsRewriteSwitch(CoordinatorEntity, SwitchEntity):
+class AdGuardDnsRewriteSwitch(
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+):
     """Switch to enable/disable a DNS rewrite rule (v0.107.68+).
 
     For AdGuard Home versions < 0.107.68, this switch uses a fallback
@@ -402,9 +407,9 @@ class AdGuardDnsRewriteSwitch(CoordinatorEntity, SwitchEntity):
         }
         # Include version-gating info
         if self.coordinator.server_version:
-            attrs[
-                "native_toggle_support"
-            ] = self.coordinator.server_version.supports_rewrite_enabled
+            attrs["native_toggle_support"] = (
+                self.coordinator.server_version.supports_rewrite_enabled
+            )
         return attrs
 
     def _get_rewrite_data(self) -> DnsRewrite | None:

@@ -1,4 +1,5 @@
 """Data models for AdGuard Home API responses."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

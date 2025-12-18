@@ -1,4 +1,5 @@
 """Tests for the AdGuard Home Extended data models."""
+
 from __future__ import annotations
 
 from custom_components.adguard_home_extended.api.models import (

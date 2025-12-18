@@ -1,4 +1,5 @@
 """Tests for the AdGuard Home Extended blocked services switches."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock

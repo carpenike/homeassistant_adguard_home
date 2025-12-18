@@ -6,6 +6,7 @@
 # See: https://github.com/MatthewFlamm/pytest-homeassistant-custom-component/blob/main/src/pytest_homeassistant_custom_component/plugins.py
 # Current version 0.13.205 causes a spurious teardown error on some tests.
 """
+
 from __future__ import annotations
 
 import builtins

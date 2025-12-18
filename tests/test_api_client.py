@@ -1,7 +1,7 @@
 """Tests for the AdGuard Home Extended API client."""
+
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -136,7 +136,7 @@ class TestAdGuardHomeClient:
     ) -> None:
         """Test request handles timeout properly."""
         # Simulate a timeout by raising asyncio.TimeoutError
-        mock_session.request.side_effect = asyncio.TimeoutError()
+        mock_session.request.side_effect = TimeoutError()
 
         with pytest.raises(AdGuardHomeConnectionError, match="timed out"):
             await client._request("GET", "/control/status")

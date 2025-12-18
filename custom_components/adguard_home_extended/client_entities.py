@@ -1,4 +1,5 @@
 """Per-client filtering entities for AdGuard Home Extended."""
+
 from __future__ import annotations
 
 import logging
@@ -59,7 +60,9 @@ async def create_client_entities(
     return entities
 
 
-class AdGuardClientBaseSwitch(CoordinatorEntity, SwitchEntity):
+class AdGuardClientBaseSwitch(
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+):
     """Base class for per-client switches."""
 
     coordinator: AdGuardHomeDataUpdateCoordinator

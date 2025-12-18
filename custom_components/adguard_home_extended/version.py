@@ -13,6 +13,7 @@ Version history for key features:
 - v0.107.65+: New blocked services (ChatGPT, Claude, DeepSeek, Odysee)
 - v0.107.68+: Query log response_status filter, DNS rewrite enabled field
 """
+
 from __future__ import annotations
 
 import re

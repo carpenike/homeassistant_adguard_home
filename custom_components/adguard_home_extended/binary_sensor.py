@@ -1,4 +1,5 @@
 """Binary sensor platform for AdGuard Home Extended."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -22,7 +23,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 @dataclass(frozen=True, kw_only=True)
-class AdGuardHomeBinarySensorEntityDescription(BinarySensorEntityDescription):
+class AdGuardHomeBinarySensorEntityDescription(BinarySensorEntityDescription):  # type: ignore[override]
     """Describes AdGuard Home binary sensor entity."""
 
     is_on_fn: Callable[[AdGuardHomeData], bool | None]
@@ -67,7 +68,9 @@ async def async_setup_entry(
     )
 
 
-class AdGuardHomeBinarySensor(CoordinatorEntity, BinarySensorEntity):
+class AdGuardHomeBinarySensor(
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], BinarySensorEntity
+):
     """Representation of an AdGuard Home binary sensor."""
 
     coordinator: AdGuardHomeDataUpdateCoordinator

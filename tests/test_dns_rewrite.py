@@ -1,4 +1,5 @@
 """Tests for DNS rewrite and query log features."""
+
 from __future__ import annotations
 
 from custom_components.adguard_home_extended.api.models import DnsRewrite

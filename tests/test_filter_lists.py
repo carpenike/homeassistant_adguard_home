@@ -1,4 +1,5 @@
 """Tests for filter list switches."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock

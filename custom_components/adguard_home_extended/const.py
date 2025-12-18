@@ -1,4 +1,5 @@
 """Constants for the AdGuard Home Extended integration."""
+
 from __future__ import annotations
 
 from typing import Final

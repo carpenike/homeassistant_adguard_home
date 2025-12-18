@@ -1,4 +1,5 @@
 """Tests for the AdGuard Home Extended integration init."""
+
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch

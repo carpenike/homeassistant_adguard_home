@@ -1,4 +1,5 @@
 """Tests for the AdGuard Home Extended config flow."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

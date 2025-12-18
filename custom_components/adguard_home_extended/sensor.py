@@ -1,4 +1,5 @@
 """Sensor platform for AdGuard Home Extended."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -29,7 +30,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 @dataclass(frozen=True, kw_only=True)
-class AdGuardHomeSensorEntityDescription(SensorEntityDescription):
+class AdGuardHomeSensorEntityDescription(SensorEntityDescription):  # type: ignore[override]
     """Describes AdGuard Home sensor entity."""
 
     value_fn: Callable[[AdGuardHomeData], Any]
@@ -290,7 +291,9 @@ async def async_setup_entry(
     )
 
 
-class AdGuardHomeSensor(CoordinatorEntity, SensorEntity):
+class AdGuardHomeSensor(
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SensorEntity
+):
     """Representation of an AdGuard Home sensor."""
 
     coordinator: AdGuardHomeDataUpdateCoordinator
