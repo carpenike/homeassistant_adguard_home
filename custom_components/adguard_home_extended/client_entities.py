@@ -147,15 +147,30 @@ class AdGuardClientBaseSwitch(
         }
 
     async def _async_update_client(self, **kwargs: Any) -> None:
-        """Update client settings."""
+        """Update client settings.
+
+        This method preserves all existing client settings while updating
+        only the fields specified in kwargs. Crucially, it preserves the
+        blocked_services_schedule which is required when use_global_blocked_services
+        is False.
+        """
         client_data = self._get_client_data()
         if client_data is None:
             return
 
-        # Build updated client config
+        # Parse safe_search from client data if present
+        safe_search_data = client_data.get("safe_search")
+        from .api.models import SafeSearchSettings
+
+        safe_search = (
+            SafeSearchSettings.from_dict(safe_search_data) if safe_search_data else None
+        )
+
+        # Build updated client config, preserving all existing values
         updated_client = ClientConfig(
             name=client_data.get("name", ""),
             ids=client_data.get("ids", []),
+            uid=client_data.get("uid", ""),
             use_global_settings=kwargs.get(
                 "use_global_settings", client_data.get("use_global_settings", True)
             ),
@@ -171,14 +186,22 @@ class AdGuardClientBaseSwitch(
             safesearch_enabled=kwargs.get(
                 "safesearch_enabled", client_data.get("safesearch_enabled", False)
             ),
+            safe_search=safe_search,
             use_global_blocked_services=kwargs.get(
                 "use_global_blocked_services",
                 client_data.get("use_global_blocked_services", True),
             ),
             blocked_services=kwargs.get(
-                "blocked_services", client_data.get("blocked_services", [])
+                "blocked_services", client_data.get("blocked_services") or []
             ),
-            tags=client_data.get("tags", []),
+            # Preserve the existing schedule - crucial for per-client blocked services
+            blocked_services_schedule=client_data.get("blocked_services_schedule"),
+            upstreams=client_data.get("upstreams") or [],
+            tags=client_data.get("tags") or [],
+            upstreams_cache_enabled=client_data.get("upstreams_cache_enabled", True),
+            upstreams_cache_size=client_data.get("upstreams_cache_size", 0),
+            ignore_querylog=client_data.get("ignore_querylog", False),
+            ignore_statistics=client_data.get("ignore_statistics", False),
         )
 
         await self.coordinator.client.update_client(self._client_name, updated_client)

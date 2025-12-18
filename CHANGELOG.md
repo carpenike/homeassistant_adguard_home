@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.7] - 2025-12-18
+
+### Fixed
+
+- **Per-client settings wiped on toggle** - When toggling per-client switches (filtering, parental, etc.), the `blocked_services_schedule`, `safe_search`, `upstreams`, `ignore_querylog`, and `ignore_statistics` fields were not being preserved. Now all client settings are properly retained when updating any individual setting
+
+### Added
+
+- `blocked_services_schedule` field to `AdGuardHomeClient` model - Preserves per-client blocked services schedules (required since AdGuard Home v0.107.37)
+- `safe_search` field to `AdGuardHomeClient` model - Supports the new safe search settings object (v0.107.52+) with per-engine toggles
+- `upstreams` field to `AdGuardHomeClient` model - Preserves per-client custom DNS upstream servers
+- `ignore_querylog` and `ignore_statistics` fields to `AdGuardHomeClient` model - Preserves privacy settings for individual clients
+- Tests for new client fields including schedule preservation, safe_search object, and upstreams
+
 ## [0.2.6] - 2025-12-18
 
 ### Fixed

@@ -2198,3 +2198,114 @@ class TestApiClientAdditionalMethods:
         # Should have default schedule with time_zone
         assert "blocked_services_schedule" in json_data
         assert json_data["blocked_services_schedule"]["time_zone"] == "Local"
+
+    @pytest.mark.asyncio
+    async def test_update_client_uses_schedule_from_config(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test update_client uses blocked_services_schedule from ClientConfig."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        # Client already has a schedule set
+        existing_schedule = {
+            "time_zone": "Europe/Berlin",
+            "tue": {"start": 3600000, "end": 72000000},
+        }
+        updated_client = ClientConfig(
+            name="Client",
+            ids=["192.168.1.200"],
+            use_global_blocked_services=False,
+            blocked_services=["youtube"],
+            blocked_services_schedule=existing_schedule,  # Schedule in config
+        )
+        await client.update_client("Client", updated_client)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        # Should use schedule from ClientConfig
+        assert json_data["data"]["blocked_services_schedule"] == existing_schedule
+
+    @pytest.mark.asyncio
+    async def test_add_client_with_safe_search(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test add_client includes safe_search when provided."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+        from custom_components.adguard_home_extended.api.models import (
+            SafeSearchSettings,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        safe_search = SafeSearchSettings(
+            enabled=True, bing=True, google=True, youtube=False
+        )
+        new_client = ClientConfig(
+            name="SafeSearch Client",
+            ids=["192.168.1.201"],
+            safe_search=safe_search,
+        )
+        await client.add_client(new_client)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        assert "safe_search" in json_data
+        assert json_data["safe_search"]["enabled"] is True
+        assert json_data["safe_search"]["youtube"] is False
+
+    @pytest.mark.asyncio
+    async def test_update_client_with_ignore_flags(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test update_client includes ignore_querylog and ignore_statistics."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        updated_client = ClientConfig(
+            name="Privacy Client",
+            ids=["192.168.1.202"],
+            ignore_querylog=True,
+            ignore_statistics=True,
+        )
+        await client.update_client("Privacy Client", updated_client)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        assert json_data["data"]["ignore_querylog"] is True
+        assert json_data["data"]["ignore_statistics"] is True
+
+    async def test_update_client_with_upstreams(
+        self, client: AdGuardHomeClient, mock_session: MagicMock
+    ) -> None:
+        """Test update_client includes per-client upstreams."""
+        from custom_components.adguard_home_extended.api.models import (
+            AdGuardHomeClient as ClientConfig,
+        )
+
+        mock_response = create_mock_response(status=200, json_data=None)
+        mock_session.request.return_value = MockContextManager(mock_response)
+
+        updated_client = ClientConfig(
+            name="Kids Device",
+            ids=["192.168.1.100"],
+            upstreams=["https://family.cloudflare-dns.com/dns-query"],
+        )
+        await client.update_client("Kids Device", updated_client)
+
+        call_args = mock_session.request.call_args
+        json_data = call_args[1]["json"]
+        assert json_data["data"]["upstreams"] == [
+            "https://family.cloudflare-dns.com/dns-query"
+        ]

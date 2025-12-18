@@ -212,7 +212,15 @@ class DnsInfo:
 
 @dataclass
 class AdGuardHomeClient:
-    """AdGuard Home client configuration."""
+    """AdGuard Home client configuration.
+
+    Per OpenAPI spec, the Client schema includes:
+    - use_global_blocked_services: whether to use global blocked services
+    - blocked_services: list of service IDs to block (when not using global)
+    - blocked_services_schedule: schedule for when blocking is active (v0.107.37+)
+    - safe_search: SafeSearchConfig object (replaces deprecated safesearch_enabled)
+    - upstreams: list of custom DNS upstream servers for this client
+    """
 
     name: str
     ids: list[str] = field(default_factory=list)
@@ -221,16 +229,27 @@ class AdGuardHomeClient:
     filtering_enabled: bool = True
     parental_enabled: bool = False
     safebrowsing_enabled: bool = False
-    safesearch_enabled: bool = False
+    safesearch_enabled: bool = False  # Deprecated, use safe_search instead
+    safe_search: SafeSearchSettings | None = None  # Per-engine safe search (v0.107.52+)
     use_global_blocked_services: bool = True
     blocked_services: list[str] = field(default_factory=list)
+    blocked_services_schedule: dict[str, Any] | None = None  # v0.107.37+
+    upstreams: list[str] = field(default_factory=list)  # Custom DNS upstreams
     tags: list[str] = field(default_factory=list)
     upstreams_cache_enabled: bool = True
     upstreams_cache_size: int = 0
+    ignore_querylog: bool = False
+    ignore_statistics: bool = False
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> AdGuardHomeClient:
         """Create instance from API response dict."""
+        # Parse safe_search if present
+        safe_search_data = data.get("safe_search")
+        safe_search = (
+            SafeSearchSettings.from_dict(safe_search_data) if safe_search_data else None
+        )
+
         return cls(
             name=data.get("name", ""),
             ids=data.get("ids", []),
@@ -240,11 +259,16 @@ class AdGuardHomeClient:
             parental_enabled=data.get("parental_enabled", False),
             safebrowsing_enabled=data.get("safebrowsing_enabled", False),
             safesearch_enabled=data.get("safesearch_enabled", False),
+            safe_search=safe_search,
             use_global_blocked_services=data.get("use_global_blocked_services", True),
-            blocked_services=data.get("blocked_services", []),
-            tags=data.get("tags", []),
+            blocked_services=data.get("blocked_services") or [],
+            blocked_services_schedule=data.get("blocked_services_schedule"),
+            upstreams=data.get("upstreams") or [],
+            tags=data.get("tags") or [],
             upstreams_cache_enabled=data.get("upstreams_cache_enabled", True),
             upstreams_cache_size=data.get("upstreams_cache_size", 0),
+            ignore_querylog=data.get("ignore_querylog", False),
+            ignore_statistics=data.get("ignore_statistics", False),
         )
 
 

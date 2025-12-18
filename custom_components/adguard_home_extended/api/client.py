@@ -436,6 +436,7 @@ class AdGuardHomeClient:
         Args:
             client: The ClientConfig with client settings.
             blocked_services_schedule: Optional schedule for blocked services.
+                If not provided, uses client.blocked_services_schedule.
                 Format: {"time_zone": "Local", "mon": {"start": 0, "end": 86400000}, ...}
         """
         data: dict[str, Any] = {
@@ -445,15 +446,28 @@ class AdGuardHomeClient:
             "filtering_enabled": client.filtering_enabled,
             "parental_enabled": client.parental_enabled,
             "safebrowsing_enabled": client.safebrowsing_enabled,
-            "safesearch_enabled": client.safesearch_enabled,
             "use_global_blocked_services": client.use_global_blocked_services,
             "blocked_services": client.blocked_services or [],
+            "upstreams": client.upstreams or [],
             "tags": client.tags or [],
+            "ignore_querylog": client.ignore_querylog,
+            "ignore_statistics": client.ignore_statistics,
         }
 
-        # Add blocked_services_schedule if provided (v0.107.37+)
-        if blocked_services_schedule is not None:
-            data["blocked_services_schedule"] = blocked_services_schedule
+        # Handle safe_search (v0.107.52+) - prefer safe_search over deprecated safesearch_enabled
+        if client.safe_search is not None:
+            data["safe_search"] = client.safe_search.to_dict()
+        else:
+            # Fallback to deprecated field
+            data["safesearch_enabled"] = client.safesearch_enabled
+
+        # Determine blocked_services_schedule:
+        # 1. Use explicit parameter if provided
+        # 2. Otherwise use schedule from ClientConfig if present
+        # 3. Fall back to default empty schedule when using per-client blocked services
+        schedule = blocked_services_schedule or client.blocked_services_schedule
+        if schedule is not None:
+            data["blocked_services_schedule"] = schedule
         elif not client.use_global_blocked_services:
             # Provide a default empty schedule when using per-client blocked services
             data["blocked_services_schedule"] = {"time_zone": "Local"}
@@ -472,6 +486,7 @@ class AdGuardHomeClient:
             name: The current name of the client to update.
             client: The ClientConfig with updated values.
             blocked_services_schedule: Optional schedule for blocked services.
+                If not provided, uses client.blocked_services_schedule.
                 Format: {"time_zone": "Local", "mon": {"start": 0, "end": 86400000}, ...}
         """
         # Build the data dict with all required Client schema fields
@@ -482,16 +497,28 @@ class AdGuardHomeClient:
             "filtering_enabled": client.filtering_enabled,
             "parental_enabled": client.parental_enabled,
             "safebrowsing_enabled": client.safebrowsing_enabled,
-            "safesearch_enabled": client.safesearch_enabled,
             "use_global_blocked_services": client.use_global_blocked_services,
             "blocked_services": client.blocked_services or [],
+            "upstreams": client.upstreams or [],
             "tags": client.tags or [],
+            "ignore_querylog": client.ignore_querylog,
+            "ignore_statistics": client.ignore_statistics,
         }
 
-        # Add blocked_services_schedule if provided (v0.107.37+)
-        # This is required when use_global_blocked_services is False
-        if blocked_services_schedule is not None:
-            data["blocked_services_schedule"] = blocked_services_schedule
+        # Handle safe_search (v0.107.52+) - prefer safe_search over deprecated safesearch_enabled
+        if client.safe_search is not None:
+            data["safe_search"] = client.safe_search.to_dict()
+        else:
+            # Fallback to deprecated field
+            data["safesearch_enabled"] = client.safesearch_enabled
+
+        # Determine blocked_services_schedule:
+        # 1. Use explicit parameter if provided (highest priority)
+        # 2. Otherwise use schedule from ClientConfig if present (preserves existing)
+        # 3. Fall back to default empty schedule when using per-client blocked services
+        schedule = blocked_services_schedule or client.blocked_services_schedule
+        if schedule is not None:
+            data["blocked_services_schedule"] = schedule
         elif not client.use_global_blocked_services:
             # Provide a default empty schedule when using per-client blocked services
             data["blocked_services_schedule"] = {"time_zone": "Local"}

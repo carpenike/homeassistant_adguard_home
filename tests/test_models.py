@@ -311,11 +311,25 @@ class TestClientConfig:
             "parental_enabled": True,
             "safebrowsing_enabled": True,
             "safesearch_enabled": True,
+            "safe_search": {
+                "enabled": True,
+                "bing": True,
+                "duckduckgo": True,
+                "google": True,
+                "youtube": False,
+            },
             "use_global_blocked_services": False,
             "blocked_services": ["tiktok", "youtube"],
+            "blocked_services_schedule": {
+                "time_zone": "America/New_York",
+                "mon": {"start": 0, "end": 86400000},
+            },
+            "upstreams": ["https://family.cloudflare-dns.com/dns-query"],
             "tags": ["device:tablet", "user:child"],
             "upstreams_cache_enabled": False,
             "upstreams_cache_size": 8192,
+            "ignore_querylog": True,
+            "ignore_statistics": True,
         }
         client = ClientConfig.from_dict(data)
 
@@ -327,11 +341,22 @@ class TestClientConfig:
         assert client.parental_enabled is True
         assert client.safebrowsing_enabled is True
         assert client.safesearch_enabled is True
+        # Test safe_search parsing
+        assert client.safe_search is not None
+        assert client.safe_search.enabled is True
+        assert client.safe_search.youtube is False
         assert client.use_global_blocked_services is False
         assert client.blocked_services == ["tiktok", "youtube"]
+        # Test blocked_services_schedule
+        assert client.blocked_services_schedule is not None
+        assert client.blocked_services_schedule["time_zone"] == "America/New_York"
+        # Test upstreams
+        assert client.upstreams == ["https://family.cloudflare-dns.com/dns-query"]
         assert len(client.tags) == 2
         assert client.upstreams_cache_enabled is False
         assert client.upstreams_cache_size == 8192
+        assert client.ignore_querylog is True
+        assert client.ignore_statistics is True
 
     def test_from_dict_defaults(self) -> None:
         """Test creating client config from dict with defaults."""
@@ -345,8 +370,13 @@ class TestClientConfig:
         assert client.parental_enabled is False
         assert client.use_global_blocked_services is True
         assert client.blocked_services == []
+        assert client.blocked_services_schedule is None
+        assert client.upstreams == []
+        assert client.safe_search is None
         assert client.upstreams_cache_enabled is True
         assert client.upstreams_cache_size == 0
+        assert client.ignore_querylog is False
+        assert client.ignore_statistics is False
 
 
 class TestBlockedService:
