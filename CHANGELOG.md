@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.3] - 2025-12-18
+
 ### Fixed
 
 - **415 Unsupported Media Type error (aiohttp fix)** - Use `skip_auto_headers={"Content-Type"}` to prevent aiohttp from auto-adding Content-Type header on POST requests without a body. This is the correct solution per aiohttp documentation
@@ -113,7 +115,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Diagnostics support with sensitive data redaction
   - Full test coverage (114 tests)
 
-[Unreleased]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.2...v0.2.3
+[0.2.2]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/carpenike/homeassistant_adguard_home/compare/v0.1.0...v0.1.1
