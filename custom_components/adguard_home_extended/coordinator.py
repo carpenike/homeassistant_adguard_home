@@ -276,10 +276,18 @@ class AdGuardHomeDataUpdateCoordinator(DataUpdateCoordinator[AdGuardHomeData]):
         if self.data and self.data.status:
             version = self.data.status.version
 
+        host = self.config_entry.data.get("host", "unknown")
+        port = self.config_entry.data.get("port")
+        scheme = "https" if self.config_entry.data.get("ssl", False) else "http"
+        configuration_url = (
+            f"{scheme}://{host}:{port}" if port else f"{scheme}://{host}"
+        )
+
         return DeviceInfo(
             identifiers={(DOMAIN, self.config_entry.entry_id)},
-            name=f"AdGuard Home ({self.config_entry.data.get('host', 'unknown')})",
+            name=f"AdGuard Home ({host})",
             manufacturer="AdGuard",
             model="AdGuard Home",
             sw_version=version,
+            configuration_url=configuration_url,
         )

@@ -709,6 +709,26 @@ class TestServiceHandlers:
             ["tiktok"], {"mon": [{"start": 540, "end": 1020}]}
         )
 
+    def test_set_blocked_services_schema_validates_schedule(self) -> None:
+        """The set_blocked_services schema accepts a valid schedule object."""
+        from custom_components.adguard_home_extended import SCHEDULE_SCHEMA
+
+        # Valid AdGuard schedule: per-day {start, end} in ms, plus time_zone.
+        valid = {
+            "time_zone": "Local",
+            "mon": {"start": 0, "end": 86400000},
+        }
+        assert SCHEDULE_SCHEMA(valid) == valid
+
+    def test_set_blocked_services_schema_rejects_bad_schedule(self) -> None:
+        """The schema rejects a malformed day window (non-numeric start)."""
+        import voluptuous as vol
+
+        from custom_components.adguard_home_extended import SCHEDULE_SCHEMA
+
+        with pytest.raises(vol.Invalid):
+            SCHEDULE_SCHEMA({"mon": {"start": "noon", "end": 100}})
+
     @pytest.mark.asyncio
     async def test_handle_add_filter_url(
         self, mock_hass: MagicMock, mock_coordinator: MagicMock

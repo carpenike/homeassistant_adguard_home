@@ -735,6 +735,121 @@ class TestReauthFlow:
 # These should be tested via integration tests with a real Home Assistant instance
 
 
+class TestReconfigureFlow:
+    """Tests for the reconfigure flow."""
+
+    @pytest.fixture
+    def mock_reconfigure_entry(self) -> MagicMock:
+        """Create a mock config entry for reconfigure."""
+        entry = MagicMock()
+        entry.data = {
+            "host": "192.168.1.1",
+            "port": 3000,
+            "ssl": False,
+            "verify_ssl": True,
+            "username": "user",
+            "password": "pass",
+        }
+        entry.unique_id = "192.168.1.1:3000"
+        return entry
+
+    @pytest.mark.asyncio
+    async def test_reconfigure_shows_form(
+        self, hass: HomeAssistant, mock_reconfigure_entry: MagicMock
+    ) -> None:
+        """Test reconfigure shows a prefilled form with no input."""
+        flow = AdGuardHomeConfigFlow()
+        flow.hass = hass
+        flow.context = {"source": "reconfigure"}
+        flow._get_reconfigure_entry = MagicMock(return_value=mock_reconfigure_entry)
+
+        result = await flow.async_step_reconfigure()
+
+        assert result["type"] == FlowResultType.FORM
+        assert result["step_id"] == "reconfigure"
+        assert result["errors"] == {}
+
+    @pytest.mark.asyncio
+    async def test_reconfigure_success_updates_entry(
+        self, hass: HomeAssistant, mock_reconfigure_entry: MagicMock
+    ) -> None:
+        """Test successful reconfigure updates the entry data."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(
+                return_value=AdGuardHomeStatus(
+                    protection_enabled=True, running=True, version="0.107.43"
+                )
+            )
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "reconfigure"}
+            flow._get_reconfigure_entry = MagicMock(return_value=mock_reconfigure_entry)
+            flow.async_update_reload_and_abort = MagicMock(
+                return_value={"type": "abort", "reason": "reconfigure_successful"}
+            )
+
+            result = await flow.async_step_reconfigure(
+                user_input={
+                    "host": "192.168.1.50",
+                    "port": 8080,
+                    "ssl": False,
+                    "verify_ssl": True,
+                    "username": "user",
+                    "password": "pass",
+                }
+            )
+
+            assert result["type"] == "abort"
+            assert result["reason"] == "reconfigure_successful"
+            flow.async_update_reload_and_abort.assert_called_once()
+            _, kwargs = flow.async_update_reload_and_abort.call_args
+            assert kwargs["reason"] == "reconfigure_successful"
+            assert kwargs["data_updates"]["host"] == "192.168.1.50"
+            assert kwargs["data_updates"]["port"] == 8080
+
+    @pytest.mark.asyncio
+    async def test_reconfigure_cannot_connect(
+        self, hass: HomeAssistant, mock_reconfigure_entry: MagicMock
+    ) -> None:
+        """Test reconfigure surfaces a connection error."""
+        from custom_components.adguard_home_extended.api.client import (
+            AdGuardHomeConnectionError,
+        )
+
+        with patch(
+            "custom_components.adguard_home_extended.config_flow.AdGuardHomeClient"
+        ) as mock_client_class:
+            mock_client = AsyncMock()
+            mock_client.get_status = AsyncMock(
+                side_effect=AdGuardHomeConnectionError("Connection failed")
+            )
+            mock_client_class.return_value = mock_client
+
+            flow = AdGuardHomeConfigFlow()
+            flow.hass = hass
+            flow.context = {"source": "reconfigure"}
+            flow._get_reconfigure_entry = MagicMock(return_value=mock_reconfigure_entry)
+
+            result = await flow.async_step_reconfigure(
+                user_input={
+                    "host": "192.168.1.50",
+                    "port": 8080,
+                    "ssl": False,
+                    "verify_ssl": True,
+                }
+            )
+
+            assert result["type"] == FlowResultType.FORM
+            assert result["errors"] == {"base": "cannot_connect"}
+
+
 class TestDhcpDiscoveryFlow:
     """Tests for DHCP discovery flow."""
 

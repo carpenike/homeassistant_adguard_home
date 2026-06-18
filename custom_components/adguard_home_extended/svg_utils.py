@@ -9,7 +9,10 @@ These utilities process the SVGs to:
 from __future__ import annotations
 
 import base64
+import logging
 import re
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def process_svg_icon(base64_svg: str, fill_color: str) -> str:
@@ -39,7 +42,10 @@ def process_svg_icon(base64_svg: str, fill_color: str) -> str:
         return f"data:image/svg+xml;base64,{processed_b64}"
 
     except Exception:  # noqa: BLE001
-        # If processing fails, return original as-is
+        # If processing fails, return original as-is so the icon still renders.
+        _LOGGER.warning(
+            "Failed to process SVG icon; using unmodified icon", exc_info=True
+        )
         return f"data:image/svg+xml;base64,{base64_svg}"
 
 

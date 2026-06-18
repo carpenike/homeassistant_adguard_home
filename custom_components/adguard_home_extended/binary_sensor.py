@@ -21,6 +21,9 @@ from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 if TYPE_CHECKING:  # pragma: no cover
     from . import AdGuardHomeConfigEntry
 
+# Read-only platform; coordinator handles all polling.
+PARALLEL_UPDATES = 0
+
 
 @dataclass(frozen=True, kw_only=True)
 class AdGuardHomeBinarySensorEntityDescription(BinarySensorEntityDescription):  # type: ignore[override]
@@ -88,6 +91,18 @@ class AdGuardHomeBinarySensor(
         self.entity_description = description
         self._attr_unique_id = f"{coordinator.config_entry.entry_id}_{description.key}"
         self._attr_device_info = coordinator.device_info
+
+    @property
+    def available(self) -> bool:
+        """Return True if entity is available.
+
+        Falls back to unavailable when the underlying data for this sensor
+        is missing (e.g. DHCP status when the DHCP endpoint is unreachable)
+        even if the coordinator update otherwise succeeded.
+        """
+        if not super().available:
+            return False
+        return self.entity_description.is_on_fn(self.coordinator.data) is not None
 
     @property
     def is_on(self) -> bool | None:

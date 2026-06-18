@@ -46,7 +46,13 @@ from .const import (
 )
 
 if TYPE_CHECKING:  # pragma: no cover
-    from homeassistant.components.dhcp import DhcpServiceInfo
+    # DhcpServiceInfo lives in homeassistant.components.dhcp for the Home
+    # Assistant version this integration targets; newer HA type stubs moved it
+    # to homeassistant.helpers.service_info.dhcp, so the attr-defined error from
+    # those stubs is suppressed here.
+    from homeassistant.components.dhcp import (  # type: ignore[attr-defined]
+        DhcpServiceInfo,
+    )
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -357,6 +363,85 @@ class AdGuardHomeConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Optional(CONF_USERNAME): str,
                     vol.Optional(CONF_PASSWORD): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Handle reconfiguration of an existing entry.
+
+        Lets the user update the host, port, TLS and credentials without
+        removing and re-adding the integration (e.g. when the AdGuard Home
+        server moves to a new address).
+        """
+        errors: dict[str, str] = {}
+        reconfigure_entry = self._get_reconfigure_entry()
+
+        if user_input is not None:
+            host, ssl_from_scheme, port_from_url = _normalize_host_input(
+                user_input[CONF_HOST]
+            )
+            user_input[CONF_HOST] = host
+
+            if ssl_from_scheme is not None:
+                user_input[CONF_SSL] = ssl_from_scheme
+
+            if port_from_url is not None and user_input[CONF_PORT] == DEFAULT_PORT:
+                user_input[CONF_PORT] = port_from_url
+
+            session = async_get_clientsession(
+                self.hass, verify_ssl=user_input.get(CONF_VERIFY_SSL, True)
+            )
+
+            client = AdGuardHomeClient(
+                host=host,
+                port=user_input[CONF_PORT],
+                username=user_input.get(CONF_USERNAME),
+                password=user_input.get(CONF_PASSWORD),
+                use_ssl=user_input.get(CONF_SSL, False),
+                session=session,
+            )
+
+            try:
+                await client.get_status()
+            except AdGuardHomeAuthError:
+                errors["base"] = "invalid_auth"
+            except AdGuardHomeConnectionError:
+                errors["base"] = "cannot_connect"
+            except Exception:  # noqa: BLE001
+                _LOGGER.exception("Unexpected exception during reconfigure")
+                errors["base"] = "unknown"
+            else:
+                return self.async_update_reload_and_abort(
+                    reconfigure_entry,
+                    data_updates=user_input,
+                    reason="reconfigure_successful",
+                )
+
+        existing = reconfigure_entry.data
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_HOST, default=existing.get(CONF_HOST)): str,
+                    vol.Required(
+                        CONF_PORT, default=existing.get(CONF_PORT, DEFAULT_PORT)
+                    ): int,
+                    vol.Optional(
+                        CONF_USERNAME,
+                        description={"suggested_value": existing.get(CONF_USERNAME)},
+                    ): str,
+                    vol.Optional(CONF_PASSWORD): str,
+                    vol.Required(
+                        CONF_SSL, default=existing.get(CONF_SSL, DEFAULT_SSL)
+                    ): bool,
+                    vol.Required(
+                        CONF_VERIFY_SSL,
+                        default=existing.get(CONF_VERIFY_SSL, DEFAULT_VERIFY_SSL),
+                    ): bool,
                 }
             ),
             errors=errors,

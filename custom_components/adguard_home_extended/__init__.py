@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any
 
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
@@ -17,16 +17,15 @@ from homeassistant.const import (
     CONF_VERIFY_SSL,
     Platform,
 )
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import DOMAIN
 from .coordinator import AdGuardHomeDataUpdateCoordinator
 
-if TYPE_CHECKING:  # pragma: no cover
-    # Type alias for typed ConfigEntry with runtime_data
-    AdGuardHomeConfigEntry = ConfigEntry
+# Typed config entry: ``entry.runtime_data`` is the coordinator.
+type AdGuardHomeConfigEntry = ConfigEntry[AdGuardHomeDataUpdateCoordinator]
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +64,30 @@ ATTR_OFFSET = "offset"
 ATTR_SEARCH = "search"
 ATTR_RESPONSE_STATUS = "response_status"
 
+# Days of the week used by AdGuard Home blocked-services schedules.
+_SCHEDULE_DAYS = ("sun", "mon", "tue", "wed", "thu", "fri", "sat")
+
+# A single day's blocking window: start/end are milliseconds from midnight.
+# ALLOW_EXTRA keeps validation forward-compatible with future AdGuard fields.
+_SCHEDULE_DAY_SCHEMA = vol.Schema(
+    {
+        vol.Required("start"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+        vol.Required("end"): vol.All(vol.Coerce(int), vol.Range(min=0)),
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
+# Validates the optional schedule object accepted by set_blocked_services so
+# malformed input is rejected with a clear error instead of being forwarded to
+# the AdGuard Home API verbatim.
+SCHEDULE_SCHEMA = vol.Schema(
+    {
+        vol.Optional("time_zone"): cv.string,
+        **{vol.Optional(day): _SCHEDULE_DAY_SCHEMA for day in _SCHEDULE_DAYS},
+    },
+    extra=vol.ALLOW_EXTRA,
+)
+
 
 def _get_coordinator(
     hass: HomeAssistant, entry_id: str | None
@@ -81,12 +104,12 @@ def _get_coordinator(
     if entry_id:
         for entry in entries:
             if entry.entry_id == entry_id:
-                return cast(AdGuardHomeDataUpdateCoordinator, entry.runtime_data)
+                return entry.runtime_data
         raise HomeAssistantError(f"AdGuard Home instance {entry_id} not found")
 
     # If only one instance, use it; otherwise require entry_id
     if len(entries) == 1:
-        return cast(AdGuardHomeDataUpdateCoordinator, entries[0].runtime_data)
+        return entries[0].runtime_data
 
     raise HomeAssistantError(
         "Multiple AdGuard Home instances configured. Please specify entry_id."
@@ -364,6 +387,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
         schema=vol.Schema(
             {
                 vol.Required(ATTR_SERVICES): vol.All(cv.ensure_list, [cv.string]),
+                vol.Optional(ATTR_SCHEDULE): SCHEDULE_SCHEMA,
                 entry_id_field: cv.string,
             }
         ),
@@ -454,7 +478,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
                 entry_id_field: cv.string,
             }
         ),
-        supports_response=True,
+        supports_response=SupportsResponse.OPTIONAL,
     )
 
     hass.services.async_register(
@@ -474,7 +498,7 @@ async def _async_setup_services(hass: HomeAssistant) -> None:
                 entry_id_field: cv.string,
             }
         ),
-        supports_response=True,
+        supports_response=SupportsResponse.OPTIONAL,
     )
 
     hass.services.async_register(

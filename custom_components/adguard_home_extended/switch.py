@@ -17,11 +17,16 @@ from .api.client import AdGuardHomeClient
 from .api.models import DnsRewrite
 from .const import DOMAIN
 from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
+from .entity import OptimisticSwitchMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from . import AdGuardHomeConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
+
+# Serialize commands so concurrent toggles don't race against the same
+# AdGuard Home instance.
+PARALLEL_UPDATES = 1
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -284,7 +289,9 @@ class ClientEntityManager:
 
 
 class AdGuardHomeSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+    OptimisticSwitchMixin,
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator],
+    SwitchEntity,
 ):
     """Representation of an AdGuard Home switch."""
 
@@ -333,16 +340,20 @@ class AdGuardHomeSwitch(
     @property
     def is_on(self) -> bool | None:
         """Return true if the switch is on."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         return self.entity_description.is_on_fn(self.coordinator.data)
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Turn the switch on."""
         await self.entity_description.turn_on_fn(self.coordinator.client)
+        self._set_optimistic_state(True)
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Turn the switch off."""
         await self.entity_description.turn_off_fn(self.coordinator.client)
+        self._set_optimistic_state(False)
         await self.coordinator.async_request_refresh()
 
 
@@ -420,7 +431,9 @@ class DnsRewriteEntityManager:
 
 
 class AdGuardDnsRewriteSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+    OptimisticSwitchMixin,
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator],
+    SwitchEntity,
 ):
     """Switch to enable/disable a DNS rewrite rule (v0.107.68+).
 
@@ -485,6 +498,8 @@ class AdGuardDnsRewriteSwitch(
     @property
     def is_on(self) -> bool | None:
         """Return true if the DNS rewrite is enabled."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         rewrite = self._get_rewrite_data()
         if rewrite is None:
             return None
@@ -500,6 +515,7 @@ class AdGuardDnsRewriteSwitch(
             await self.coordinator.client.set_rewrite_enabled(
                 self._domain, self._answer, True
             )
+            self._set_optimistic_state(True)
         else:
             # Older versions: Delete and re-add (rewrite is already "on" if it exists)
             # No action needed for turn_on in older versions
@@ -513,6 +529,7 @@ class AdGuardDnsRewriteSwitch(
             await self.coordinator.client.set_rewrite_enabled(
                 self._domain, self._answer, False
             )
+            self._set_optimistic_state(False)
         else:
             # Older versions: No native disable - rewrite can only exist as enabled
             # User should use delete_rewrite service instead

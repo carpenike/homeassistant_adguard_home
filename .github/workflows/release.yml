@@ -1,9 +1,17 @@
 name: Release
 
+# Releases are cut manually from the Actions tab (or `gh workflow run release.yml
+# -f version=X.Y.Z`). The workflow bumps the manifest, finalizes the changelog,
+# commits that to main, and only THEN creates the tag — so the tag, the release
+# zip, and main all carry the same version. HACS picks up the resulting GitHub
+# Release automatically.
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, semver without a leading v (e.g. 0.4.0)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -17,6 +25,24 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: main
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate version and resolve metadata
+        id: get_version
+        run: |
+          VERSION="${{ inputs.version }}"
+          VERSION="${VERSION#v}"
+          if ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.]+)?$'; then
+            echo "::error::Invalid version '$VERSION'. Use semver like 0.4.0"
+            exit 1
+          fi
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$VERSION already exists"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "DATE=$(date +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -31,45 +57,37 @@ jobs:
       - name: Run tests
         run: pytest tests/ -v
 
-      - name: Get version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-
       - name: Update manifest version
         run: |
           sed -i 's/"version": "[^"]*"/"version": "${{ steps.get_version.outputs.VERSION }}"/' \
             custom_components/adguard_home_extended/manifest.json
 
-      - name: Commit version bump to main
+      - name: Finalize changelog
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git checkout main
-          sed -i 's/"version": "[^"]*"/"version": "${{ steps.get_version.outputs.VERSION }}"/' \
-            custom_components/adguard_home_extended/manifest.json
-          git add custom_components/adguard_home_extended/manifest.json
-          git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.get_version.outputs.VERSION }}"
-          git push origin main
-
-      - name: Checkout tag for zip
-        run: git checkout ${{ github.ref }}
-
-      - name: Update manifest in tag checkout
-        run: |
-          sed -i 's/"version": "[^"]*"/"version": "${{ steps.get_version.outputs.VERSION }}"/' \
-            custom_components/adguard_home_extended/manifest.json
-
-      - name: Create zip for release
-        run: |
-          cd custom_components
-          zip -r ../adguard_home_extended.zip adguard_home_extended
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          DATE="${{ steps.get_version.outputs.DATE }}"
+          if grep -q "## \[$VERSION\]" CHANGELOG.md; then
+            echo "Changelog already has a section for $VERSION; leaving as-is."
+          else
+            # Convert the "## [Unreleased]" heading into the new version section
+            # while keeping a fresh, empty Unreleased section at the top.
+            awk -v ver="$VERSION" -v date="$DATE" '
+              !done && /^## \[Unreleased\]/ {
+                print
+                print ""
+                print "## [" ver "] - " date
+                done=1
+                next
+              }
+              { print }
+            ' CHANGELOG.md > CHANGELOG.tmp && mv CHANGELOG.tmp CHANGELOG.md
+          fi
 
       - name: Extract changelog for version
         id: changelog
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
-          # Extract the section for this version from CHANGELOG.md
-          # Looks for ## [VERSION] and captures until the next ## [ or end of file
+          # Capture everything under "## [VERSION]" up to the next "## [" heading.
           CHANGELOG=$(awk -v ver="$VERSION" '
             /^## \[/ {
               if (found) exit
@@ -79,19 +97,37 @@ jobs:
             found { print }
           ' CHANGELOG.md)
 
-          # If no changelog found, use a default message
-          if [ -z "$CHANGELOG" ]; then
+          if [ -z "$(printf '%s' "$CHANGELOG" | tr -d '[:space:]')" ]; then
             CHANGELOG="See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details."
           fi
 
-          # Use GitHub's multiline string output format
-          echo "RELEASE_BODY<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          {
+            echo "RELEASE_BODY<<EOF"
+            echo "$CHANGELOG"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Commit and tag release
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add custom_components/adguard_home_extended/manifest.json CHANGELOG.md
+          git commit -m "chore: release v$VERSION"
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin main
+          git push origin "v$VERSION"
+
+      - name: Create zip for release
+        run: |
+          cd custom_components
+          zip -r ../adguard_home_extended.zip adguard_home_extended
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: v${{ steps.get_version.outputs.VERSION }}
           body: ${{ steps.changelog.outputs.RELEASE_BODY }}
           files: |
             adguard_home_extended.zip

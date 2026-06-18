@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Instant switch feedback** - All switches (protection, filtering, per-client, blocked services, filter lists, DNS rewrites) now update their state immediately when toggled instead of waiting for the next poll, using optimistic state that is reconciled on the following coordinator refresh
+- **Reconfigure support** - You can now update an instance's host, port, TLS and credentials from the integration's "Reconfigure" option without removing and re-adding it
+- Device pages now link directly to the AdGuard Home web UI via a configuration URL
+- Schedule validation for the `set_blocked_services` service, giving a clear error on malformed input (this also fixes the `schedule` field being rejected by the service schema)
+
+### Fixed
+
+- The `schedule` parameter of the `set_blocked_services` service is now accepted (it was previously rejected because it was missing from the service schema)
+- Binary sensors (e.g. DHCP) now correctly report as unavailable when their underlying data is missing, rather than showing stale state
+- SVG icon processing failures are now logged instead of failing silently
+
+### Changed
+
+- Commands to AdGuard Home are now serialized to avoid races when multiple switches are toggled at once
+
 ## [0.3.4] - 2025-12-18
 
 ### Fixed

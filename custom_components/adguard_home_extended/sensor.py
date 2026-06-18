@@ -28,6 +28,9 @@ from .coordinator import AdGuardHomeData, AdGuardHomeDataUpdateCoordinator
 if TYPE_CHECKING:  # pragma: no cover
     from . import AdGuardHomeConfigEntry
 
+# Read-only platform; coordinator handles all polling.
+PARALLEL_UPDATES = 0
+
 
 @dataclass(frozen=True, kw_only=True)
 class AdGuardHomeSensorEntityDescription(SensorEntityDescription):  # type: ignore[override]

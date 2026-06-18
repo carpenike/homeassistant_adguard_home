@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .coordinator import AdGuardHomeDataUpdateCoordinator
+from .entity import OptimisticSwitchMixin
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,7 +29,9 @@ def _get_filter_unique_id(url: str, whitelist: bool = False) -> str:
 
 
 class FilterListSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+    OptimisticSwitchMixin,
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator],
+    SwitchEntity,
 ):
     """Switch to enable/disable a filter list."""
 
@@ -68,6 +71,8 @@ class FilterListSwitch(
     @property
     def is_on(self) -> bool | None:
         """Return True if the filter is enabled."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         filter_data = self._get_filter_data()
         if filter_data is None:
             return None
@@ -122,6 +127,7 @@ class FilterListSwitch(
             whitelist=self._whitelist,
             name=self._filter_name,
         )
+        self._set_optimistic_state(True)
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -132,6 +138,7 @@ class FilterListSwitch(
             whitelist=self._whitelist,
             name=self._filter_name,
         )
+        self._set_optimistic_state(False)
         await self.coordinator.async_request_refresh()
 
 

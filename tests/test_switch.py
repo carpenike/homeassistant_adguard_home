@@ -1000,6 +1000,61 @@ class TestAdGuardHomeSwitch:
         mock_coordinator.client.set_protection.assert_called_once_with(False)
         mock_coordinator.async_request_refresh.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_switch_turn_on_sets_optimistic_state(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Turning on reflects state immediately, before the next refresh."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        # Coordinator still reports protection as OFF (stale until next poll).
+        mock_coordinator.data.status = AdGuardHomeStatus(
+            protection_enabled=False, running=True
+        )
+        mock_coordinator.client.set_protection = AsyncMock()
+
+        description = next(d for d in SWITCH_TYPES if d.key == "protection")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        assert switch.is_on is False
+        await switch.async_turn_on()
+
+        # Optimistic state shows ON even though coordinator data is unchanged.
+        assert switch.is_on is True
+
+    @pytest.mark.asyncio
+    async def test_switch_optimistic_state_cleared_on_update(
+        self, mock_coordinator: MagicMock
+    ) -> None:
+        """Fresh coordinator data clears the optimistic override."""
+        from custom_components.adguard_home_extended.api.models import AdGuardHomeStatus
+        from custom_components.adguard_home_extended.switch import (
+            SWITCH_TYPES,
+            AdGuardHomeSwitch,
+        )
+
+        mock_coordinator.data.status = AdGuardHomeStatus(
+            protection_enabled=False, running=True
+        )
+        mock_coordinator.client.set_protection = AsyncMock()
+
+        description = next(d for d in SWITCH_TYPES if d.key == "protection")
+        switch = AdGuardHomeSwitch(mock_coordinator, description)
+
+        await switch.async_turn_on()
+        assert switch._optimistic_is_on is True
+
+        # Simulate a coordinator push; optimistic value should be discarded so
+        # the real server state takes over again.
+        switch.async_write_ha_state = MagicMock()
+        switch._handle_coordinator_update()
+        assert switch._optimistic_is_on is None
+        assert switch.is_on is False
+
     def test_switch_available_when_data_present(
         self, mock_coordinator: MagicMock
     ) -> None:

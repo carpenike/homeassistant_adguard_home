@@ -16,6 +16,7 @@ from .api.models import AdGuardHomeClient as ClientConfig
 from .blocked_services import SERVICE_CATEGORIES
 from .const import CONF_ICON_COLOR, DEFAULT_ICON_COLOR, DOMAIN
 from .coordinator import AdGuardHomeDataUpdateCoordinator
+from .entity import OptimisticSwitchMixin
 from .svg_utils import process_svg_icon
 
 _LOGGER = logging.getLogger(__name__)
@@ -78,7 +79,9 @@ async def create_client_entities(
 
 
 class AdGuardClientBaseSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+    OptimisticSwitchMixin,
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator],
+    SwitchEntity,
 ):
     """Base class for per-client switches."""
 
@@ -228,6 +231,8 @@ class AdGuardClientFilteringSwitch(AdGuardClientBaseSwitch):
     @property
     def is_on(self) -> bool | None:
         """Return true if filtering is enabled for this client."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         client_data = self._get_client_data()
         if client_data is None:
             return None
@@ -235,10 +240,12 @@ class AdGuardClientFilteringSwitch(AdGuardClientBaseSwitch):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable filtering for this client."""
+        self._set_optimistic_state(True)
         await self._async_update_client(filtering_enabled=True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable filtering for this client."""
+        self._set_optimistic_state(False)
         await self._async_update_client(filtering_enabled=False)
 
 
@@ -261,6 +268,8 @@ class AdGuardClientParentalSwitch(AdGuardClientBaseSwitch):
     @property
     def is_on(self) -> bool | None:
         """Return true if parental control is enabled for this client."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         client_data = self._get_client_data()
         if client_data is None:
             return None
@@ -268,10 +277,12 @@ class AdGuardClientParentalSwitch(AdGuardClientBaseSwitch):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable parental control for this client."""
+        self._set_optimistic_state(True)
         await self._async_update_client(parental_enabled=True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable parental control for this client."""
+        self._set_optimistic_state(False)
         await self._async_update_client(parental_enabled=False)
 
 
@@ -294,6 +305,8 @@ class AdGuardClientSafeBrowsingSwitch(AdGuardClientBaseSwitch):
     @property
     def is_on(self) -> bool | None:
         """Return true if safe browsing is enabled for this client."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         client_data = self._get_client_data()
         if client_data is None:
             return None
@@ -301,10 +314,12 @@ class AdGuardClientSafeBrowsingSwitch(AdGuardClientBaseSwitch):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable safe browsing for this client."""
+        self._set_optimistic_state(True)
         await self._async_update_client(safebrowsing_enabled=True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable safe browsing for this client."""
+        self._set_optimistic_state(False)
         await self._async_update_client(safebrowsing_enabled=False)
 
 
@@ -327,6 +342,8 @@ class AdGuardClientSafeSearchSwitch(AdGuardClientBaseSwitch):
     @property
     def is_on(self) -> bool | None:
         """Return true if safe search is enabled for this client."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         client_data = self._get_client_data()
         if client_data is None:
             return None
@@ -334,10 +351,12 @@ class AdGuardClientSafeSearchSwitch(AdGuardClientBaseSwitch):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable safe search for this client."""
+        self._set_optimistic_state(True)
         await self._async_update_client(safesearch_enabled=True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable safe search for this client."""
+        self._set_optimistic_state(False)
         await self._async_update_client(safesearch_enabled=False)
 
 
@@ -360,6 +379,8 @@ class AdGuardClientUseGlobalSettingsSwitch(AdGuardClientBaseSwitch):
     @property
     def is_on(self) -> bool | None:
         """Return true if using global settings for this client."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         client_data = self._get_client_data()
         if client_data is None:
             return None
@@ -367,10 +388,12 @@ class AdGuardClientUseGlobalSettingsSwitch(AdGuardClientBaseSwitch):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable global settings for this client."""
+        self._set_optimistic_state(True)
         await self._async_update_client(use_global_settings=True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable global settings for this client."""
+        self._set_optimistic_state(False)
         await self._async_update_client(use_global_settings=False)
 
 
@@ -395,6 +418,8 @@ class AdGuardClientUseGlobalBlockedServicesSwitch(AdGuardClientBaseSwitch):
     @property
     def is_on(self) -> bool | None:
         """Return true if using global blocked services for this client."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         client_data = self._get_client_data()
         if client_data is None:
             return None
@@ -402,10 +427,12 @@ class AdGuardClientUseGlobalBlockedServicesSwitch(AdGuardClientBaseSwitch):
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         """Enable global blocked services for this client."""
+        self._set_optimistic_state(True)
         await self._async_update_client(use_global_blocked_services=True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         """Disable global blocked services for this client."""
+        self._set_optimistic_state(False)
         await self._async_update_client(use_global_blocked_services=False)
 
 
@@ -489,6 +516,8 @@ class AdGuardClientBlockedServiceSwitch(AdGuardClientBaseSwitch):
     @property
     def is_on(self) -> bool | None:
         """Return true if the service is blocked for this client."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         client_data = self._get_client_data()
         if client_data is None:
             return None
@@ -531,6 +560,7 @@ class AdGuardClientBlockedServiceSwitch(AdGuardClientBaseSwitch):
         current_blocked = set(client_data.get("blocked_services", []))
         current_blocked.add(self._service_id)
 
+        self._set_optimistic_state(True)
         await self._async_update_client(
             blocked_services=list(current_blocked),
             use_global_blocked_services=False,  # Ensure we're using per-client settings
@@ -546,6 +576,7 @@ class AdGuardClientBlockedServiceSwitch(AdGuardClientBaseSwitch):
         current_blocked = set(client_data.get("blocked_services", []))
         current_blocked.discard(self._service_id)
 
+        self._set_optimistic_state(False)
         await self._async_update_client(
             blocked_services=list(current_blocked),
             use_global_blocked_services=False,  # Ensure we're using per-client settings

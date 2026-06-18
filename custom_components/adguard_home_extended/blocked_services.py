@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_ICON_COLOR, DEFAULT_ICON_COLOR, DOMAIN
 from .coordinator import AdGuardHomeDataUpdateCoordinator
+from .entity import OptimisticSwitchMixin
 from .svg_utils import process_svg_icon
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -165,7 +166,9 @@ async def async_setup_entry(
 
 
 class AdGuardBlockedServiceSwitch(
-    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator], SwitchEntity
+    OptimisticSwitchMixin,
+    CoordinatorEntity[AdGuardHomeDataUpdateCoordinator],
+    SwitchEntity,
 ):
     """Switch to toggle blocking of a specific service."""
 
@@ -221,6 +224,8 @@ class AdGuardBlockedServiceSwitch(
     @property
     def is_on(self) -> bool | None:
         """Return true if service is blocked."""
+        if self._optimistic_is_on is not None:
+            return self._optimistic_is_on
         if self.coordinator.data is None:
             return None
         return self._service_id in self.coordinator.data.blocked_services
@@ -262,6 +267,7 @@ class AdGuardBlockedServiceSwitch(
         await self.coordinator.client.set_blocked_services(
             list(current_blocked), schedule
         )
+        self._set_optimistic_state(True)
         await self.coordinator.async_request_refresh()
 
     async def async_turn_off(self, **kwargs: Any) -> None:
@@ -277,4 +283,5 @@ class AdGuardBlockedServiceSwitch(
         await self.coordinator.client.set_blocked_services(
             list(current_blocked), schedule
         )
+        self._set_optimistic_state(False)
         await self.coordinator.async_request_refresh()
