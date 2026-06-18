@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-18
+
 ### Added
 
 - **Instant switch feedback** - All switches (protection, filtering, per-client, blocked services, filter lists, DNS rewrites) now update their state immediately when toggled instead of waiting for the next poll, using optimistic state that is reconciled on the following coordinator refresh
